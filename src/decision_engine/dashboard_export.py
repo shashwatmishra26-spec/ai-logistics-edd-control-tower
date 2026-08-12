@@ -17,6 +17,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from config.config import (  # noqa: E402
     ACTION_QUEUE_PATH,
+    BREACH_ALERT_QUEUE_PATH,
     CARRIER_LANE_SCORECARD_PATH,
     CARRIER_MIX_RECOMMENDATIONS_PATH,
     CARRIER_SCORECARD_PATH,
@@ -24,9 +25,15 @@ from config.config import (  # noqa: E402
     DASHBOARD_DATA_PATH,
     EDD_TARGET,
     FEATURED_SHIPMENTS_PATH,
+    IVR_CALL_SHEET_PATH,
     KPI_SUMMARY_PATH,
+    LANE_BREACH_SUMMARY_PATH,
     LANE_SCORECARD_PATH,
+    NDR_CARE_TEAM_DIGEST_PATH,
+    NDR_CONSOLIDATED_REPORT_PATH,
+    NDR_CUSTOMER_OUTREACH_PATH,
     NDR_QUEUE_PATH,
+    PADDING_RECOMMENDATIONS_PATH,
     PREDICTIONS_PATH,
     SIMULATION_PATH,
 )
@@ -45,6 +52,16 @@ def run():
     sim_df = pd.read_csv(SIMULATION_PATH)
     with open(KPI_SUMMARY_PATH) as f:
         kpis = json.load(f)
+
+    # --- Primary-objective data: in-transit breach alerts, lane padding,
+    # NDR consolidation/IVR/outreach ------------------------------------------
+    breach_q = pd.read_csv(BREACH_ALERT_QUEUE_PATH, parse_dates=["edd"])
+    lane_breach_df = pd.read_csv(LANE_BREACH_SUMMARY_PATH)
+    padding_df = pd.read_csv(PADDING_RECOMMENDATIONS_PATH)
+    ndr_report_df = pd.read_csv(NDR_CONSOLIDATED_REPORT_PATH)
+    ivr_sheet_df = pd.read_csv(IVR_CALL_SHEET_PATH)
+    ndr_outreach_df = pd.read_csv(NDR_CUSTOMER_OUTREACH_PATH)
+    ndr_care_digest = NDR_CARE_TEAM_DIGEST_PATH.read_text() if NDR_CARE_TEAM_DIGEST_PATH.exists() else ""
 
     # --- EDD adherence trend by order week (ACTUAL) -------------------------
     delivered = df[df["is_delivered"]].copy()
@@ -92,6 +109,10 @@ def run():
     risk_map = preds.set_index("order_id")["edd_risk_score"].to_dict()
     shipments_compact["edd_risk_score"] = shipments_compact["order_id"].map(risk_map)
 
+    breach_q_export = breach_q.copy()
+    if len(breach_q_export):
+        breach_q_export["edd"] = breach_q_export["edd"].dt.strftime("%Y-%m-%d")
+
     payload = {
         "shipments": shipments_compact.to_dict(orient="records"),
         "meta": {
@@ -100,6 +121,15 @@ def run():
             "edd_target": EDD_TARGET,
         },
         "kpis": kpis,
+        # --- Primary objective: in-transit EDD breach alerts + lane padding
+        "breach_alerts": breach_q_export.to_dict(orient="records"),
+        "lane_breach_summary": lane_breach_df.to_dict(orient="records"),
+        "padding_recommendations": padding_df.to_dict(orient="records"),
+        # --- Primary objective: NDR consolidation + IVR + outreach
+        "ndr_consolidated_report": ndr_report_df.to_dict(orient="records"),
+        "ivr_call_sheet": ivr_sheet_df.to_dict(orient="records"),
+        "ndr_customer_outreach": ndr_outreach_df.to_dict(orient="records"),
+        "ndr_care_team_digest": ndr_care_digest,
         "edd_trend_weekly": weekly.to_dict(orient="records"),
         "rto_trend_weekly": rto_weekly.to_dict(orient="records"),
         "ndr_pareto": ndr_pareto.to_dict(orient="records"),

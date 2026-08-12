@@ -32,23 +32,61 @@ if str(ROOT_DIR) not in sys.path:
 
 from config.config import (  # noqa: E402
     ACTION_QUEUE_PATH,
+    BREACH_ALERT_QUEUE_PATH,
     CARRIER_MIX_RECOMMENDATIONS_PATH,
     CARRIER_SCORECARD_PATH,
     COD_QUEUE_PATH,
     EDD_TARGET,
     FEATURED_SHIPMENTS_PATH,
+    IVR_CALL_SHEET_PATH,
     KPI_SUMMARY_PATH,
+    LANE_BREACH_SUMMARY_PATH,
     LANE_SCORECARD_PATH,
     NDR_QUEUE_PATH,
     OUTPUTS_DIR,
+    PADDING_RECOMMENDATIONS_PATH,
     PREDICTIONS_PATH,
 )
 
 PRIORITY_RANK = {"P1 - Urgent": 0, "P2 - High": 1, "P3 - Standard": 2}
 
 
-def build_action_queue(preds, lane_df, rec_df, ndr_q, cod_q) -> pd.DataFrame:
+def build_action_queue(preds, lane_df, rec_df, ndr_q, cod_q, breach_q=None, padding_df=None) -> pd.DataFrame:
     actions = []
+
+    # 0. In-transit EDD breach alerts — the primary, forward-looking queue.
+    # These shipments are a SUBSET of "high risk open" (below) filtered down
+    # to P1/P2 urgency by days-to-EDD, so they're listed first but do not
+    # double-count against item 1's broader risk-tier action.
+    if breach_q is not None and len(breach_q):
+        urgent_breach = breach_q[breach_q["alert_priority"].isin(["P1 - Urgent", "P2 - High"])]
+        for _, r in urgent_breach.iterrows():
+            actions.append({
+                "source_agent": "EDD Breach Alert Agent",
+                "entity": r["awb"],
+                "issue": "EDD already passed, still in transit" if r["edd_already_breached"]
+                         else f"{r['risk_tier']} risk, EDD in {int(r['days_to_edd'])}d",
+                "recommended_action": f"{r['recommended_action']} (push notification + care-team update queued)",
+                "priority": r["alert_priority"],
+                "expected_impact": "Proactive customer contact before EDD miss becomes a complaint/RTO",
+                "confidence": "AI_PREDICTED (risk score) + MOCK (message content)",
+            })
+
+    # 0b. Lane EDD padding recommendations — direct, transparent suggestions.
+    if padding_df is not None and len(padding_df):
+        real_padding = padding_df[padding_df["recommended_padding_days"] > 0]
+        for _, r in real_padding.iterrows():
+            actions.append({
+                "source_agent": "Lane Padding Agent",
+                "entity": f"{r['customer_city']} ({r['lane_class']})",
+                "issue": f"P90 transit {r['p90_actual_transit_days']}d vs {r['current_transit_sla_days']}d SLA "
+                         f"— gap is transit-time driven",
+                "recommended_action": f"Add {int(r['recommended_padding_days'])} day(s) of EDD padding "
+                                       f"(new SLA {int(r['new_transit_sla_days'])}d)",
+                "priority": "P2 - High" if r["manual_review_needed"] else "P3 - Standard",
+                "expected_impact": f"+{r['projected_lift_pp']}pp on this lane (SIMULATED backtest)",
+                "confidence": "SIMULATED",
+            })
 
     # 1. High-risk open shipments from the EDD Risk Agent
     high_risk_open = preds[(preds["risk_tier"] == "High") & (~preds["current_status"].isin(["Delivered", "RTO", "Lost"]))]
@@ -120,7 +158,8 @@ def build_action_queue(preds, lane_df, rec_df, ndr_q, cod_q) -> pd.DataFrame:
     return df
 
 
-def build_kpi_summary(df, preds, lane_df, carrier_df, ndr_q, cod_q) -> dict:
+def build_kpi_summary(df, preds, lane_df, carrier_df, ndr_q, cod_q,
+                       breach_q=None, lane_breach_df=None, padding_df=None, ivr_sheet=None) -> dict:
     delivered = df[df["is_delivered"]]
     baseline_edd = round(delivered["edd_met"].sum() / len(delivered), 4)
     open_shipments = df[df["is_open"]]
@@ -160,12 +199,34 @@ def build_kpi_summary(df, preds, lane_df, carrier_df, ndr_q, cod_q) -> dict:
             "open_notifications": int(len(ndr_q)),
             "p1_urgent": int((ndr_q["priority"] == "P1 - Urgent").sum()),
             "p2_high": int((ndr_q["priority"] == "P2 - High").sum()),
+            "ivr_call_sheet_size": int(len(ivr_sheet)) if ivr_sheet is not None else None,
+            "care_team_digest_generated": ivr_sheet is not None,
         },
         "cod_remittance": {
             "overdue_count": int((cod_q["status"] == "Overdue").sum()),
             "overdue_amount": float(cod_q.loc[cod_q["status"] == "Overdue", "cod_amount"].sum()),
         },
     }
+
+    if breach_q is not None:
+        kpis["breach_alerts"] = {
+            "in_transit_at_risk": int(len(breach_q)),
+            "already_breached_in_transit": int(breach_q["edd_already_breached"].sum()) if len(breach_q) else 0,
+            "p1_urgent": int((breach_q["alert_priority"] == "P1 - Urgent").sum()) if len(breach_q) else 0,
+            "p2_high": int((breach_q["alert_priority"] == "P2 - High").sum()) if len(breach_q) else 0,
+            "lanes_breach_risk": int((lane_breach_df["lane_status"] == "Breach Risk").sum())
+                                  if lane_breach_df is not None else None,
+        }
+    if padding_df is not None:
+        real_padding = padding_df[padding_df["recommended_padding_days"] > 0] if len(padding_df) else padding_df
+        kpis["padding_recommendations"] = {
+            "lanes_evaluated": int(len(padding_df)),
+            "lanes_recommended_for_padding": int(len(real_padding)) if len(padding_df) else 0,
+            "avg_recommended_padding_days": round(float(real_padding["recommended_padding_days"].mean()), 1)
+                                             if len(real_padding) else 0,
+            "max_projected_lift_pp": float(real_padding["projected_lift_pp"].max()) if len(real_padding) else 0,
+        }
+
     return kpis
 
 
@@ -177,9 +238,14 @@ def run():
     rec_df = pd.read_csv(CARRIER_MIX_RECOMMENDATIONS_PATH)
     ndr_q = pd.read_csv(NDR_QUEUE_PATH)
     cod_q = pd.read_csv(COD_QUEUE_PATH)
+    breach_q = pd.read_csv(BREACH_ALERT_QUEUE_PATH, parse_dates=["edd"])
+    lane_breach_df = pd.read_csv(LANE_BREACH_SUMMARY_PATH)
+    padding_df = pd.read_csv(PADDING_RECOMMENDATIONS_PATH)
+    ivr_sheet = pd.read_csv(IVR_CALL_SHEET_PATH)
 
-    action_queue = build_action_queue(preds, lane_df, rec_df, ndr_q, cod_q)
-    kpis = build_kpi_summary(df, preds, lane_df, carrier_df, ndr_q, cod_q)
+    action_queue = build_action_queue(preds, lane_df, rec_df, ndr_q, cod_q, breach_q, padding_df)
+    kpis = build_kpi_summary(df, preds, lane_df, carrier_df, ndr_q, cod_q,
+                              breach_q, lane_breach_df, padding_df, ivr_sheet)
 
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     action_queue.to_csv(ACTION_QUEUE_PATH, index=False)
