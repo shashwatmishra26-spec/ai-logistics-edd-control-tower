@@ -36,6 +36,19 @@ MODEL_PATH = OUTPUTS_DIR / "edd_risk_model.joblib"
 MODEL_METRICS_PATH = OUTPUTS_DIR / "model_evaluation.json"
 ROOT_CAUSE_PATH = OUTPUTS_DIR / "root_cause_analysis.md"
 
+# EDD Breach Alert Agent (in-transit shipments at risk of missing EDD)
+BREACH_ALERT_QUEUE_PATH = OUTPUTS_DIR / "edd_breach_alerts.csv"
+LANE_BREACH_SUMMARY_PATH = OUTPUTS_DIR / "lane_breach_summary.csv"
+
+# Lane EDD Padding Recommender
+PADDING_RECOMMENDATIONS_PATH = OUTPUTS_DIR / "edd_padding_recommendations.csv"
+
+# NDR Consolidated Report + IVR + outreach
+NDR_CONSOLIDATED_REPORT_PATH = OUTPUTS_DIR / "ndr_consolidated_report.csv"
+IVR_CALL_SHEET_PATH = OUTPUTS_DIR / "ivr_call_sheet.csv"
+NDR_CARE_TEAM_DIGEST_PATH = OUTPUTS_DIR / "ndr_care_team_digest.txt"
+NDR_CUSTOMER_OUTREACH_PATH = OUTPUTS_DIR / "ndr_customer_outreach.csv"
+
 # ---------------------------------------------------------------------------
 # Business targets
 # ---------------------------------------------------------------------------
@@ -100,6 +113,31 @@ CARRIERS = ["Carrier A", "Carrier B", "Carrier C", "Carrier D"]
 # Carrier Optimization Agent is allowed to recommend a mix change.
 MIN_VOLUME_FOR_RECOMMENDATION = 30
 MIN_VOLUME_FOR_LANE_INTERVENTION = 20
+
+# ---------------------------------------------------------------------------
+# EDD Breach Alert Agent (in-transit shipments about to miss EDD)
+# ---------------------------------------------------------------------------
+# Minimum currently-OPEN shipment volume on a lane before it's ranked in the
+# breach-risk lane summary — open volume per lane is naturally much smaller
+# than total historical volume, so this is intentionally lower than
+# MIN_VOLUME_FOR_LANE_INTERVENTION.
+MIN_OPEN_VOLUME_FOR_BREACH_SUMMARY = 5
+# A shipment still in transit whose EDD is this many days away (or already
+# passed) and carries a High/Medium risk score is escalated for outreach.
+BREACH_ALERT_URGENT_DAYS = 1   # EDD already passed, or passes within 1 day -> P1
+BREACH_ALERT_HIGH_DAYS = 3     # EDD passes within 3 days -> P2
+
+# ---------------------------------------------------------------------------
+# Lane EDD Padding Recommender
+# ---------------------------------------------------------------------------
+# Padding is sized off the P90 of actual transit time on a lane (i.e. "pad
+# enough that 90% of historically observed deliveries would have met the new
+# EDD"), rounded up to the nearest whole day. Only recommended for lanes
+# below this adherence threshold — a lane already hitting the target doesn't
+# need its promise loosened.
+PADDING_PERCENTILE = 90
+PADDING_EDD_ADHERENCE_THRESHOLD = 0.90
+MAX_RECOMMENDED_PADDING_DAYS = 5  # sanity cap; beyond this, flag for manual ops review instead
 
 # ---------------------------------------------------------------------------
 # NDR / RTO business rules
