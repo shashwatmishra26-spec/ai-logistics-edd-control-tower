@@ -100,7 +100,19 @@
   .pill.p1 { background: rgba(208,59,59,0.12); color: var(--critical); }
   .pill.p2 { background: rgba(250,178,25,0.15); color:#9a6b00; }
   .pill.p3 { background: rgba(11,163,11,0.12); color: var(--success-text); }
+  .pill.breach { background: rgba(208,59,59,0.12); color: var(--critical); }
+  .pill.watch { background: rgba(250,178,25,0.15); color:#9a6b00; }
+  .pill.healthy { background: rgba(11,163,11,0.12); color: var(--success-text); }
+  .pill.insufficient { background: var(--gridline); color: var(--text-muted); }
   [data-theme="dark"] .pill.p2, @media (prefers-color-scheme: dark){ .pill.p2{ color:#fab219;} }
+
+  .primary-banner { border:1px solid var(--border); border-left:4px solid var(--critical); border-radius:12px; background:var(--surface-1); padding:14px 18px; margin-bottom:16px; }
+  .primary-banner h2 { margin:0 0 4px; font-size:16px; }
+  .primary-banner p { margin:0; font-size:12px; color:var(--text-secondary); }
+  .section-divider { margin: 30px 0 16px; padding-top: 18px; border-top: 2px solid var(--border); }
+  .section-divider h2 { font-size: 16px; margin: 0 0 4px; }
+  .section-divider p { margin:0; font-size:12px; color:var(--text-muted); }
+  td.trunc { max-width: 280px; white-space: nowrap; overflow:hidden; text-overflow: ellipsis; }
 
   footer.notes { margin-top: 26px; font-size:11.5px; color:var(--text-muted); border-top:1px solid var(--border); padding-top:14px; line-height:1.6; }
   code { background: var(--gridline); padding:1px 5px; border-radius:4px; font-size:11px; }
@@ -134,6 +146,73 @@
   </div>
 
   <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="primary-banner">
+    <h2>Primary Objective — Prevent EDD Breaches In-Transit &amp; Recover Failed Deliveries</h2>
+    <p>Everything in this section is a work queue, not a chart: which lanes are about to miss their promised delivery date while the shipment is still moving (and the customer-care + push alerts already queued for them), which lanes need their EDD promise padded because they structurally can't hit it, and which failed deliveries (NDR) need a call to get a landmark, address confirmation, or alternate phone number. Trend lines and scorecards behind these numbers are further down the page, under Supporting Analytics.</p>
+  </div>
+
+  <div class="kpi-row" id="primaryKpiRow"></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Lanes About to Breach EDD (In-Transit)</h3>
+      <p class="desc">AI_PREDICTED risk concentration by lane, shipments still moving only. Full list: <code>outputs/lane_breach_summary.csv</code>.</p>
+      <div id="laneBreachTable"></div>
+    </div>
+    <div class="card">
+      <h3>Lane EDD Padding Recommendations</h3>
+      <p class="desc">SIMULATED — P90 of actual transit time vs. current SLA, backtested. Only recommended where the EDD gap is transit-time driven, not NDR/RTO driven. Full list: <code>outputs/edd_padding_recommendations.csv</code>.</p>
+      <div id="paddingTable"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>In-Transit Breach Alerts — Customer Care Queue &amp; Push Notifications</h3>
+    <p class="desc">AI_PREDICTED risk score + MOCK message content (no message is actually sent — see docs/data_assumptions.md). Sorted by priority. Full queue: <code>outputs/edd_breach_alerts.csv</code>.</p>
+    <div id="breachAlertsTable"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>Central AI Decision Engine — Top Priority Actions</h3>
+    <p class="desc">Combined output of every agent, ranked by priority — breach alerts and padding recommendations lead the queue. Full queue: <code>outputs/central_action_queue.csv</code>.</p>
+    <div id="actionTable"></div>
+  </div>
+
+  <div class="section-divider" style="border-top:none; padding-top:0; margin-top:0;">
+    <h2>Deliveries That Could Not Be Completed — NDR Consolidation &amp; Outreach</h2>
+    <p>For every shipment with an unresolved failed-delivery (NDR) event: a consolidated view, a mock care-team digest email, a PII-safe IVR call sheet, and mock customer push/email outreach — all asking for the same three things: a landmark, an address confirmation, or an alternate phone number. See the privacy note in <code>src/ndr_agent/ndr_consolidated_report.py</code> — no real name/phone/address is ever used.</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>NDR Consolidated Report</h3>
+      <p class="desc">Open NDR queue broken down by reason and by lane. Full table: <code>outputs/ndr_consolidated_report.csv</code>.</p>
+      <div id="ndrReportTable"></div>
+    </div>
+    <div class="card">
+      <h3>Care Team Digest Email (MOCK)</h3>
+      <p class="desc">One digest email covering the whole queue, not one per shipment. No real email is sent.</p>
+      <div id="careDigest" style="white-space:pre-wrap;font-size:11.5px;line-height:1.6;max-height:260px;overflow:auto;background:var(--page);border:1px solid var(--border);border-radius:8px;padding:10px 12px;"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>IVR Call Sheet — Outbound Calling Queue</h3>
+    <p class="desc">PII-safe: contact details are resolved via <code>contact_lookup_key</code> against a secure CRM at call time and are never stored in this report. Full sheet: <code>outputs/ivr_call_sheet.csv</code>.</p>
+    <div id="ivrTable"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>Customer Outreach — Push &amp; Email Queue (MOCK)</h3>
+    <p class="desc">Customer-facing push notification and email copy asking directly for the missing information. No real message is sent.</p>
+    <div id="outreachTable"></div>
+  </div>
+
+  <div class="section-divider">
+    <h2>Supporting Analytics</h2>
+    <p>Trend lines, scorecards and charts behind the primary-objective numbers above.</p>
+  </div>
 
   <div class="grid-2">
     <div class="card">
@@ -188,12 +267,6 @@
       <p class="desc">Lane Health Score &lt; 75 or RTO% &gt; 25%, min. 20 shipments — see docs/methodology.md.</p>
       <div id="lanesTable"></div>
     </div>
-  </div>
-
-  <div class="card" style="margin-bottom:16px;">
-    <h3>Central AI Decision Engine — Top Priority Actions</h3>
-    <p class="desc">Combined output of every agent, ranked by priority. Full queue: <code>outputs/central_action_queue.csv</code>.</p>
-    <div id="actionTable"></div>
   </div>
 
   <footer class="notes">
@@ -392,6 +465,102 @@ const DATA = __DASHBOARD_DATA_JSON__;
     rerender();
   });
 
+  // ---------- primary objective: breach alerts, padding, NDR/IVR/outreach ----------
+  function priorityPill(p){
+    const cls = p.startsWith('P1') ? 'p1' : (p.startsWith('P2') ? 'p2' : 'p3');
+    return `<span class="pill ${cls}">${p}</span>`;
+  }
+  function laneStatusPill(s){
+    const map = {'Breach Risk':'breach','Watch':'watch','Healthy':'healthy','Insufficient Sample':'insufficient'};
+    return `<span class="pill ${map[s]||'insufficient'}">${s}</span>`;
+  }
+  function esc(s){ return (s===undefined||s===null) ? '' : String(s); }
+
+  function renderPrimaryKpis(){
+    const ba = DATA.kpis.breach_alerts || {};
+    const pr = DATA.kpis.padding_recommendations || {};
+    const nq = DATA.kpis.ndr_queue || {};
+    const tiles = [
+      {label:'In-Transit At Risk of Breach', value: ba.in_transit_at_risk ?? '—', tag:'AI_PREDICTED', note: (ba.already_breached_in_transit ?? 0)+' already past EDD'},
+      {label:'Lanes at Breach Risk', value: ba.lanes_breach_risk ?? '—', tag:'DERIVED'},
+      {label:'Breach Alerts P1 / P2', value: `${ba.p1_urgent ?? 0} / ${ba.p2_high ?? 0}`, tag:'MOCK', note:'care-team + push queued'},
+      {label:'Lanes Recommended for Padding', value: pr.lanes_recommended_for_padding ?? '—', tag:'SIMULATED', note: (pr.lanes_evaluated ?? 0)+' lanes evaluated'},
+      {label:'Avg. Recommended Padding', value: (pr.avg_recommended_padding_days ?? 0)+'d', tag:'SIMULATED'},
+      {label:'Open NDR (Undelivered)', value: nq.open_notifications ?? '—', tag:'ACTUAL', note: (nq.ivr_call_sheet_size ?? 0)+' on IVR call sheet'},
+    ];
+    document.getElementById('primaryKpiRow').innerHTML = tiles.map(t=>`
+      <div class="kpi">
+        <div class="label">${t.label}</div>
+        <div class="value">${t.value}</div>
+        ${t.note?`<div class="delta">${t.note}</div>`:''}
+        <span class="tag">${t.tag}</span>
+      </div>`).join('');
+  }
+
+  function renderLaneBreachTable(){
+    const rank = {'Breach Risk':0,'Watch':1,'Healthy':2,'Insufficient Sample':3};
+    const rows = (DATA.lane_breach_summary||[]).slice().sort((a,b)=>{
+      const r = (rank[a.lane_status]??9) - (rank[b.lane_status]??9);
+      return r !== 0 ? r : b.at_risk_pct - a.at_risk_pct;
+    }).slice(0,10);
+    document.getElementById('laneBreachTable').innerHTML = `<table class="dt"><thead><tr><th>City</th><th>Lane</th><th>Open</th><th>At-Risk</th><th>Breached</th><th>At-Risk %</th><th>Status</th></tr></thead><tbody>${
+      rows.map(r=>`<tr><td>${esc(r.customer_city)}</td><td>${esc(r.lane_class)}</td><td>${r.open_shipments}</td><td>${r.at_risk_shipments}</td><td>${r.already_breached}</td><td>${r.at_risk_pct}%</td><td>${laneStatusPill(r.lane_status)}</td></tr>`).join('')
+    }</tbody></table>`;
+  }
+
+  function renderPaddingTable(){
+    const rows = (DATA.padding_recommendations||[]).slice().sort((a,b)=>b.recommended_padding_days-a.recommended_padding_days);
+    document.getElementById('paddingTable').innerHTML = `<table class="dt"><thead><tr><th>City</th><th>Lane</th><th>Current SLA</th><th>P90 Actual</th><th>+Padding</th><th>New SLA</th><th>Projected Lift</th></tr></thead><tbody>${
+      rows.map(r=>{
+        const padded = r.recommended_padding_days > 0;
+        return `<tr><td>${esc(r.customer_city)}</td><td>${esc(r.lane_class)}</td><td>${r.current_transit_sla_days}d</td><td>${r.p90_actual_transit_days}d</td><td>${padded?('+'+r.recommended_padding_days+'d'):'No change'}</td><td>${r.new_transit_sla_days}d</td><td>${padded?('+'+r.projected_lift_pp+'pp'):'—'}</td></tr>`;
+      }).join('')
+    }</tbody></table>`;
+  }
+
+  function renderBreachAlertsTable(){
+    const rows = (DATA.breach_alerts||[]).slice(0,15);
+    document.getElementById('breachAlertsTable').innerHTML = `<table class="dt"><thead><tr><th>Priority</th><th>AWB</th><th>City / Lane</th><th>EDD</th><th>Days to EDD</th><th>Risk</th><th class="trunc">Care Team Update</th></tr></thead><tbody>${
+      rows.map(r=>`<tr><td>${priorityPill(r.alert_priority)}</td><td>${esc(r.awb)}</td><td>${esc(r.customer_city)} (${esc(r.lane_class)})</td><td>${esc(r.edd)}</td><td>${r.days_to_edd}</td><td>${esc(r.risk_tier)} (${r.edd_risk_score}%)</td><td class="trunc" title="${esc(r.care_team_update).replace(/"/g,'&quot;')}">${esc(r.care_team_update)}</td></tr>`).join('')
+    }</tbody></table>`;
+  }
+
+  function renderNdrReportTable(){
+    const rows = DATA.ndr_consolidated_report||[];
+    document.getElementById('ndrReportTable').innerHTML = `<table class="dt"><thead><tr><th>Dimension</th><th>Value</th><th>Open</th><th>% of Queue</th><th>Reattempt Success</th><th>P1</th><th>P2</th></tr></thead><tbody>${
+      rows.map(r=>`<tr><td>${esc(r.dimension)}</td><td>${esc(r.value)}</td><td>${r.open_count}</td><td>${r.pct_of_open_queue}%</td><td>${(r.avg_reattempt_success_probability*100).toFixed(0)}%</td><td>${r.p1_urgent_count}</td><td>${r.p2_high_count}</td></tr>`).join('')
+    }</tbody></table>`;
+  }
+
+  function renderIvrTable(){
+    const rows = (DATA.ivr_call_sheet||[]).slice(0,15);
+    document.getElementById('ivrTable').innerHTML = `<table class="dt"><thead><tr><th>Priority</th><th>AWB</th><th>City / Lane</th><th>NDR Reason</th><th>Info Needed</th><th class="trunc">Call Script</th></tr></thead><tbody>${
+      rows.map(r=>`<tr><td>${priorityPill(r.priority)}</td><td>${esc(r.awb)}</td><td>${esc(r.customer_city)} (${esc(r.lane_class)})</td><td>${esc(r.ndr_reason)}</td><td>${esc(r.info_needed)}</td><td class="trunc" title="${esc(r.call_script).replace(/"/g,'&quot;')}">${esc(r.call_script)}</td></tr>`).join('')
+    }</tbody></table>`;
+  }
+
+  function renderOutreachTable(){
+    const rows = (DATA.ndr_customer_outreach||[]).slice(0,10);
+    document.getElementById('outreachTable').innerHTML = `<table class="dt"><thead><tr><th>Order</th><th>Reason</th><th>Push Title</th><th class="trunc">Push Body</th><th class="trunc">Email Subject</th></tr></thead><tbody>${
+      rows.map(r=>`<tr><td>${esc(r.order_id)}</td><td>${esc(r.ndr_reason)}</td><td>${esc(r.push_notification_title)}</td><td class="trunc" title="${esc(r.push_notification_body).replace(/"/g,'&quot;')}">${esc(r.push_notification_body)}</td><td class="trunc" title="${esc(r.email_subject).replace(/"/g,'&quot;')}">${esc(r.email_subject)}</td></tr>`).join('')
+    }</tbody></table>`;
+  }
+
+  function renderCareDigest(){
+    document.getElementById('careDigest').textContent = DATA.ndr_care_team_digest || '(no digest generated)';
+  }
+
+  function renderPrimaryObjective(){
+    renderPrimaryKpis();
+    renderLaneBreachTable();
+    renderPaddingTable();
+    renderBreachAlertsTable();
+    renderNdrReportTable();
+    renderCareDigest();
+    renderIvrTable();
+    renderOutreachTable();
+  }
+
   // ---------- static charts (from pre-aggregated, statistically-vetted outputs) ----------
   function renderStaticCharts(){
     barChart('chartEddTrend', [], {}); // placeholder cleared below
@@ -447,6 +616,7 @@ const DATA = __DASHBOARD_DATA_JSON__;
     }</tbody></table>`;
   }
 
+  renderPrimaryObjective();
   renderStaticCharts();
   rerender();
 })();
