@@ -1,0 +1,20 @@
+Subject: [NDR Digest 2026-03-05] 62 open shipments — 0 urgent, 28 high priority
+
+Dear Customer Care Team,
+
+62 shipments currently have an unresolved failed-delivery (NDR) event (0 P1-Urgent, 28 P2-High). Full per-shipment queue: outputs/customer_care_notifications.csv. Outbound call list: outputs/ivr_call_sheet.csv.
+
+Top reasons:
+  - Landmark missing: 15 shipments (24.2%), avg reattempt-success 59%
+  - Customer requested re-attempt: 13 shipments (21.0%), avg reattempt-success 100%
+  - Phone not reachable: 11 shipments (17.7%), avg reattempt-success 77%
+
+Top lanes:
+  - National: 43 shipments (69.4%)
+  - Metro: 9 shipments (14.5%)
+  - Regional: 6 shipments (9.7%)
+
+Customer-facing push/email outreach has been queued separately — see outputs/ndr_customer_outreach.csv.
+
+Regards,
+AI Logistics Control Tower

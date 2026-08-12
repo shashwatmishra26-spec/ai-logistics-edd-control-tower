@@ -1,0 +1,121 @@
+customer_city,lane_class,open_shipments,at_risk_shipments,already_breached,p1_count,at_risk_pct,lane_status
+Bangalore,Metro,9,9,9,9,100.0,Breach Risk
+Mumbai,Local,7,7,7,7,100.0,Breach Risk
+Gurgaon,Metro,6,6,6,6,100.0,Breach Risk
+Pune,Metro,6,6,6,6,100.0,Breach Risk
+Hyderabad,Metro,4,4,4,4,100.0,Insufficient Sample
+Lucknow,National,4,4,4,4,100.0,Insufficient Sample
+Ajmer,National,3,3,2,2,100.0,Insufficient Sample
+East Delhi,National,3,3,3,3,100.0,Insufficient Sample
+Ernakulam,National,3,3,3,3,100.0,Insufficient Sample
+Gautam Buddha Nagar,Metro,3,3,3,3,100.0,Insufficient Sample
+Kota,National,3,3,3,3,100.0,Insufficient Sample
+Nellore,National,3,3,3,3,100.0,Insufficient Sample
+Chennai,Metro,2,2,2,2,100.0,Insufficient Sample
+Damoh,Regional,2,2,2,2,100.0,Insufficient Sample
+Firozpur,National,2,2,2,2,100.0,Insufficient Sample
+Ghaziabad,National,2,2,2,2,100.0,Insufficient Sample
+Indore,Regional,2,2,2,2,100.0,Insufficient Sample
+Jaipur,National,2,2,2,2,100.0,Insufficient Sample
+Latur,Regional,2,2,2,2,100.0,Insufficient Sample
+Ludhiana,National,2,2,2,2,100.0,Insufficient Sample
+North Delhi,National,2,2,2,2,100.0,Insufficient Sample
+Patna,National,2,2,2,2,100.0,Insufficient Sample
+South Delhi,National,2,2,2,2,100.0,Insufficient Sample
+South West Delhi,National,2,2,2,2,100.0,Insufficient Sample
+Thane,Local,2,2,2,2,100.0,Insufficient Sample
+Una,National,2,2,2,2,100.0,Insufficient Sample
+West Delhi,National,2,2,2,2,100.0,Insufficient Sample
+Adilabad,National,1,1,1,1,100.0,Insufficient Sample
+Ahmedabad,Metro,1,1,1,1,100.0,Insufficient Sample
+Aizawl,National,1,1,1,1,100.0,Insufficient Sample
+Aligarh,National,1,1,1,1,100.0,Insufficient Sample
+Alwar,National,1,1,1,1,100.0,Insufficient Sample
+Amravati,Regional,1,1,0,0,100.0,Insufficient Sample
+Amritsar,National,1,1,1,1,100.0,Insufficient Sample
+BANGALORE,Metro,1,1,1,1,100.0,Insufficient Sample
+Bangalore Rural,National,1,1,1,1,100.0,Insufficient Sample
+Bareilly,National,1,1,0,0,100.0,Insufficient Sample
+Bilaspur(CGH),Regional,1,1,1,1,100.0,Insufficient Sample
+Champhai,National,1,1,1,1,100.0,Insufficient Sample
+Chinchwad,Regional,1,1,1,1,100.0,Insufficient Sample
+Chittoor,National,1,1,0,0,100.0,Insufficient Sample
+City,National,1,1,1,1,100.0,Insufficient Sample
+Dakshina Kannada,National,1,1,1,1,100.0,Insufficient Sample
+Daman,National,1,1,1,1,100.0,Insufficient Sample
+Darjiling,National,1,1,1,1,100.0,Insufficient Sample
+Dehradun,National,1,1,1,1,100.0,Insufficient Sample
+Dewas,Regional,1,1,1,1,100.0,Insufficient Sample
+Dhanbad,National,1,1,1,1,100.0,Insufficient Sample
+Dimapur,National,1,1,1,1,100.0,Insufficient Sample
+Durg,Regional,1,1,0,0,100.0,Insufficient Sample
+East Godavari,National,1,1,1,1,100.0,Insufficient Sample
+East Khasi Hills,National,1,1,1,1,100.0,Insufficient Sample
+East Sikkim,National,1,1,1,1,100.0,Insufficient Sample
+Erode,National,1,1,1,1,100.0,Insufficient Sample
+Faridabad,National,1,1,1,1,100.0,Insufficient Sample
+Ferozepur,National,1,1,1,1,100.0,Insufficient Sample
+Gadchiroli,Regional,1,1,1,1,100.0,Insufficient Sample
+Ganganagar,National,1,1,0,0,100.0,Insufficient Sample
+Gaya,National,1,1,1,1,100.0,Insufficient Sample
+Giridh,National,1,1,1,1,100.0,Insufficient Sample
+Gumla,National,1,1,1,1,100.0,Insufficient Sample
+Guntur,National,1,1,1,1,100.0,Insufficient Sample
+Gwalior,Regional,1,1,1,1,100.0,Insufficient Sample
+Haridwar,National,1,1,1,1,100.0,Insufficient Sample
+Hisar,National,1,1,1,1,100.0,Insufficient Sample
+Hoshangabad,Regional,1,1,1,1,100.0,Insufficient Sample
+Jalandhar,National,1,1,1,1,100.0,Insufficient Sample
+Jammu,National,1,1,1,1,100.0,Insufficient Sample
+Jaunpur,National,1,1,1,1,100.0,Insufficient Sample
+Jhujhunu,National,1,1,1,1,100.0,Insufficient Sample
+Jodhpur,National,1,1,1,1,100.0,Insufficient Sample
+Jorhat,National,1,1,1,1,100.0,Insufficient Sample
+Jyotiba Phule Nagar,National,1,1,1,1,100.0,Insufficient Sample
+K.V.Rangareddy,National,1,1,1,1,100.0,Insufficient Sample
+Kachchh,National,1,1,1,1,100.0,Insufficient Sample
+Kamrup,National,1,1,1,1,100.0,Insufficient Sample
+Kapurthala,National,1,1,1,1,100.0,Insufficient Sample
+Karbi Anglong,National,1,1,1,1,100.0,Insufficient Sample
+Kasargod,National,1,1,1,1,100.0,Insufficient Sample
+Kolkata,Metro,1,1,1,1,100.0,Insufficient Sample
+Kullu,National,1,1,1,1,100.0,Insufficient Sample
+Maharajganj,National,1,1,1,1,100.0,Insufficient Sample
+Malappuram,National,1,1,0,0,100.0,Insufficient Sample
+Mandi,National,1,1,1,1,100.0,Insufficient Sample
+Medak,National,1,1,1,1,100.0,Insufficient Sample
+Meerut,National,1,1,1,1,100.0,Insufficient Sample
+Moradabad,National,1,1,1,1,100.0,Insufficient Sample
+Morbi,National,1,1,1,1,100.0,Insufficient Sample
+Muzaffarpur,National,1,1,1,1,100.0,Insufficient Sample
+Mysore,National,1,1,1,1,100.0,Insufficient Sample
+Nalgonda,National,1,1,1,1,100.0,Insufficient Sample
+Nashik,Regional,1,1,1,1,100.0,Insufficient Sample
+Nayagarh,National,1,1,1,1,100.0,Insufficient Sample
+New Delhi,Metro,1,1,1,1,100.0,Insufficient Sample
+North West Delhi,National,1,1,1,1,100.0,Insufficient Sample
+PUNE (District),Regional,1,1,1,1,100.0,Insufficient Sample
+Palakkad,National,1,1,1,1,100.0,Insufficient Sample
+Patiala,National,1,1,1,1,100.0,Insufficient Sample
+Raigarh,Regional,1,1,0,1,100.0,Insufficient Sample
+Raigarh(MH),Regional,1,1,1,1,100.0,Insufficient Sample
+Raipur,Regional,1,1,1,1,100.0,Insufficient Sample
+Ranchi,National,1,1,1,1,100.0,Insufficient Sample
+Ratlam,Regional,1,1,1,1,100.0,Insufficient Sample
+Rupnagar,National,1,1,1,1,100.0,Insufficient Sample
+Saharanpur,National,1,1,1,1,100.0,Insufficient Sample
+Sambalpur,National,1,1,1,1,100.0,Insufficient Sample
+Satara,Regional,1,1,1,1,100.0,Insufficient Sample
+Sonbhadra,National,1,1,1,1,100.0,Insufficient Sample
+Srikakulam,National,1,1,1,1,100.0,Insufficient Sample
+Surendra Nagar,National,1,1,1,1,100.0,Insufficient Sample
+Tumkur,National,1,1,1,1,100.0,Insufficient Sample
+Valsad,National,1,1,0,0,100.0,Insufficient Sample
+Virudhunagar,National,1,1,1,1,100.0,Insufficient Sample
+West Godavari,National,1,1,1,1,100.0,Insufficient Sample
+Yamuna Nagar,National,1,1,1,1,100.0,Insufficient Sample
+jodhpur,National,1,1,1,1,100.0,Insufficient Sample
+Kalahandi,National,2,1,1,1,50.0,Insufficient Sample
+Krishna,National,2,1,0,0,50.0,Insufficient Sample
+Prakasam,National,2,1,1,1,50.0,Insufficient Sample
+Mandla,Regional,1,0,0,0,0.0,Insufficient Sample

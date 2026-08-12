@@ -1,0 +1,11 @@
+dimension,value,open_count,pct_of_open_queue,avg_reattempt_success_probability,p1_urgent_count,p2_high_count
+lane_class,National,43,69.4,0.755,0,21
+lane_class,Metro,9,14.5,0.827,0,3
+lane_class,Regional,6,9.7,0.913,0,1
+lane_class,Local,4,6.5,0.638,0,3
+reason,Landmark missing,15,24.2,0.587,0,12
+reason,Customer requested re-attempt,13,21.0,1.0,0,0
+reason,Phone not reachable,11,17.7,0.774,0,5
+reason,Address issue,9,14.5,0.594,0,7
+reason,Delivery postponed by customer,9,14.5,1.0,0,0
+reason,Customer not available,5,8.1,0.653,0,4

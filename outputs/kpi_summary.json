@@ -81,10 +81,25 @@
   "ndr_queue": {
     "open_notifications": 62,
     "p1_urgent": 0,
-    "p2_high": 28
+    "p2_high": 28,
+    "ivr_call_sheet_size": 62,
+    "care_team_digest_generated": true
   },
   "cod_remittance": {
     "overdue_count": 1152,
     "overdue_amount": 1074096.0
+  },
+  "breach_alerts": {
+    "in_transit_at_risk": 176,
+    "already_breached_in_transit": 166,
+    "p1_urgent": 167,
+    "p2_high": 8,
+    "lanes_breach_risk": 4
+  },
+  "padding_recommendations": {
+    "lanes_evaluated": 10,
+    "lanes_recommended_for_padding": 6,
+    "avg_recommended_padding_days": 3.5,
+    "max_projected_lift_pp": 62.6
   }
 }
