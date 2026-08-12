@@ -20,8 +20,13 @@ if str(ROOT_DIR) not in sys.path:
 from config.config import (  # noqa: E402
     FEATURED_SHIPMENTS_PATH,
     LANE_SCORECARD_PATH,
+    MAX_RECOMMENDED_PADDING_DAYS,
     MIN_VOLUME_FOR_LANE_INTERVENTION,
     OUTPUTS_DIR,
+    PADDING_EDD_ADHERENCE_THRESHOLD,
+    PADDING_PERCENTILE,
+    PADDING_RECOMMENDATIONS_PATH,
+    TRANSIT_SLA_DAYS,
 )
 
 MID_POINT_WEEK = None  # set at runtime from data
@@ -152,6 +157,93 @@ def explain_lane(row: pd.Series) -> dict:
     return {"what": what, "why": why, "evidence": evidence, "action": action, "expected_impact": impact}
 
 
+def compute_padding_recommendations(df: pd.DataFrame, lane_df: pd.DataFrame) -> pd.DataFrame:
+    """For every lane below PADDING_EDD_ADHERENCE_THRESHOLD, recommend adding
+    N days to the EDD promise, sized off the gap between the lane's P90
+    actual transit time and its current transit_sla_days target — then
+    backtest what fraction of that lane's historically DELIVERED shipments
+    would have met the padded promise vs the current one.
+
+    This is a transparent, re-computable formula (no black box): pad enough
+    that ~90% of what has actually happened on this lane would clear the new
+    promise. Lanes where the gap isn't explained by transit time (P90 already
+    within SLA) get a padding of 0 with a rationale pointing at NDR/RTO
+    instead — padding an EDD promise doesn't fix a customer-availability or
+    RTO problem, and pretending it would is exactly the kind of dishonest
+    "add buffer to hit the number" move this project avoids elsewhere.
+    """
+    closed = df[~df["is_open"]]
+    delivered = closed[closed["is_delivered"]]
+
+    rows = []
+    for _, lane_row in lane_df.iterrows():
+        if lane_row["lane_status"] == "Insufficient Sample":
+            continue
+        edd_pct = lane_row["edd_adherence_pct"]
+        if edd_pct is None or pd.isna(edd_pct) or edd_pct >= PADDING_EDD_ADHERENCE_THRESHOLD * 100:
+            continue  # already hitting target — no padding needed
+
+        city, lane_class = lane_row["customer_city"], lane_row["lane_class"]
+        gd = delivered[(delivered["customer_city"] == city) & (delivered["lane_class"] == lane_class)]
+        if len(gd) < MIN_VOLUME_FOR_LANE_INTERVENTION:
+            continue
+
+        current_sla = TRANSIT_SLA_DAYS[lane_class]
+        transit_days = gd["transit_actual_days"].dropna()
+        p90_actual = float(np.percentile(transit_days, PADDING_PERCENTILE))
+        raw_gap = p90_actual - current_sla
+        recommended_padding = int(np.ceil(max(0, raw_gap)))
+        manual_review_needed = recommended_padding > MAX_RECOMMENDED_PADDING_DAYS
+        padding = min(recommended_padding, MAX_RECOMMENDED_PADDING_DAYS)
+        new_sla = current_sla + padding
+
+        current_meets_pct = round(float((transit_days <= current_sla).mean() * 100), 1)
+        projected_meets_pct = round(float((transit_days <= new_sla).mean() * 100), 1)
+
+        if padding == 0:
+            rationale = (
+                f"P90 actual transit ({p90_actual:.1f}d) is already within the current "
+                f"{current_sla}-day SLA — this lane's EDD gap is not explained by transit time. "
+                f"Investigate NDR/RTO drivers instead of padding the promise (see lane_scorecard.csv)."
+            )
+        else:
+            note = " (capped at the sanity limit — raw gap is larger; flagging for manual ops review)" \
+                if manual_review_needed else ""
+            rationale = (
+                f"P90 actual transit is {p90_actual:.1f}d vs a {current_sla}-day SLA "
+                f"({raw_gap:.1f}d gap). Adding {padding} day(s) of padding{note} would have let "
+                f"{projected_meets_pct}% of this lane's delivered shipments (n={len(gd)}) meet the new "
+                f"promise, vs {current_meets_pct}% under the current one."
+            )
+
+        rows.append({
+            "customer_city": city,
+            "lane_class": lane_class,
+            "shipment_volume": int(lane_row["shipment_volume"]),
+            "current_edd_adherence_pct": edd_pct,
+            "current_transit_sla_days": current_sla,
+            "p90_actual_transit_days": round(p90_actual, 1),
+            "recommended_padding_days": padding,
+            "manual_review_needed": manual_review_needed,
+            "new_transit_sla_days": new_sla,
+            "current_pct_meeting_transit_sla": current_meets_pct,
+            "projected_pct_meeting_transit_sla": projected_meets_pct,
+            "projected_lift_pp": round(projected_meets_pct - current_meets_pct, 1),
+            "rationale": rationale,
+            "data_confidence": "SIMULATED (backtest against historical transit-time distribution; not a proven future result)",
+        })
+
+    out = pd.DataFrame(rows, columns=[
+        "customer_city", "lane_class", "shipment_volume", "current_edd_adherence_pct",
+        "current_transit_sla_days", "p90_actual_transit_days", "recommended_padding_days",
+        "manual_review_needed", "new_transit_sla_days", "current_pct_meeting_transit_sla",
+        "projected_pct_meeting_transit_sla", "projected_lift_pp", "rationale", "data_confidence",
+    ])
+    if len(out):
+        out = out.sort_values("projected_lift_pp", ascending=False).reset_index(drop=True)
+    return out
+
+
 def run() -> pd.DataFrame:
     df = pd.read_csv(
         FEATURED_SHIPMENTS_PATH,
@@ -165,6 +257,13 @@ def run() -> pd.DataFrame:
     worst = lane_df[lane_df["lane_status"] == "Intervention Required"].head(5)
     for _, r in worst.iterrows():
         print(explain_lane(r))
+
+    padding_df = compute_padding_recommendations(df, lane_df)
+    padding_df.to_csv(PADDING_RECOMMENDATIONS_PATH, index=False)
+    print(f"Wrote {len(padding_df)} padding recommendations -> {PADDING_RECOMMENDATIONS_PATH}")
+    real_padding = padding_df[padding_df["recommended_padding_days"] > 0]
+    print(f"Lanes recommended for EDD padding (>0 days): {len(real_padding)}")
+
     return lane_df
 
 
