@@ -1,0 +1,5 @@
+lane_class,current_mix,recommended_mix,reason,expected_edd_impact_pp,trigger_date,confidence
+Local,"Carrier B 66, Carrier A 100",No change,"Gap between best (Carrier B, 88.2%) and worst (Carrier A, 84.5%) is 3.7pp (p=0.5017) — not statistically significant / not sustained enough to act on.",0.0,,"Low (z=0.672, p=0.5017)"
+Metro,"Carrier A 169, Carrier D 86, Carrier C 152, Carrier B 156",No change,"Gap between best (Carrier A, 84.6%) and worst (Carrier B, 79.7%) is 4.9pp (p=0.2481) — not statistically significant / not sustained enough to act on.",0.0,,"Low (z=1.155, p=0.2481)"
+National,"Carrier B 279, Carrier C 319, Carrier A 198, Carrier D 505",No change,"Gap between best (Carrier B, 88.3%) and worst (Carrier D, 83.6%) is 4.7pp (p=0.0754) — not statistically significant / not sustained enough to act on.",0.0,,"Low (z=1.778, p=0.0754)"
+Regional,"Carrier A 46, Carrier C 77, Carrier B 52, Carrier D 39",Shift ~39 shipments/period from Carrier D to Carrier A,"Carrier D EDD adherence (80.6%, n=39) is 14.0pp below Carrier A (94.6%, n=46), p=0.0464 (two-proportion z-test) — sustained, statistically supportable gap.",2.55,2026-03-05,"High (z=1.992, p=0.0464)"

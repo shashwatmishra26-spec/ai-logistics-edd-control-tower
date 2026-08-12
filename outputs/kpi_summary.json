@@ -1,0 +1,90 @@
+{
+  "snapshot_date": "2026-02-27",
+  "total_shipments": 2468,
+  "actual": {
+    "edd_adherence": 0.8499,
+    "edd_target": 0.94,
+    "gap_to_target_pp": 9.0,
+    "delivered": 1819,
+    "rto": 454,
+    "lost": 15,
+    "open_in_transit": 180,
+    "ndr_pct_of_all": 37.1,
+    "rto_pct_of_all": 18.4,
+    "cod_rto_pct": 25.0,
+    "prepaid_rto_pct": 3.0
+  },
+  "predicted": {
+    "open_shipments_high_risk": 51,
+    "open_shipments_medium_risk": 125
+  },
+  "lane": {
+    "lanes_analyzed": 409,
+    "lanes_intervention_required": 5,
+    "lanes_deteriorating": 6,
+    "lanes_best_performing": 0
+  },
+  "carrier": [
+    {
+      "carrier": "Carrier A",
+      "shipment_volume": 513,
+      "edd_adherence_pct": 85.8,
+      "avg_transit_days": 2.65,
+      "ndr_pct": 38.2,
+      "rto_pct": 22.6,
+      "lost_pct": 0.8,
+      "carrier_sla_breach_pct": 23.2,
+      "volume_share_pct": 22.4,
+      "data_confidence": "carrier_label=SYNTHETIC; outcomes=ACTUAL",
+      "concentration_flag": false
+    },
+    {
+      "carrier": "Carrier B",
+      "shipment_volume": 553,
+      "edd_adherence_pct": 85.5,
+      "avg_transit_days": 2.69,
+      "ndr_pct": 39.1,
+      "rto_pct": 20.8,
+      "lost_pct": 0.7,
+      "carrier_sla_breach_pct": 21.2,
+      "volume_share_pct": 24.2,
+      "data_confidence": "carrier_label=SYNTHETIC; outcomes=ACTUAL",
+      "concentration_flag": false
+    },
+    {
+      "carrier": "Carrier C",
+      "shipment_volume": 571,
+      "edd_adherence_pct": 85.4,
+      "avg_transit_days": 2.66,
+      "ndr_pct": 36.8,
+      "rto_pct": 16.8,
+      "lost_pct": 0.2,
+      "carrier_sla_breach_pct": 18.4,
+      "volume_share_pct": 25.0,
+      "data_confidence": "carrier_label=SYNTHETIC; outcomes=ACTUAL",
+      "concentration_flag": false
+    },
+    {
+      "carrier": "Carrier D",
+      "shipment_volume": 651,
+      "edd_adherence_pct": 83.6,
+      "avg_transit_days": 2.7,
+      "ndr_pct": 35.6,
+      "rto_pct": 19.5,
+      "lost_pct": 0.9,
+      "carrier_sla_breach_pct": 11.1,
+      "volume_share_pct": 28.5,
+      "data_confidence": "carrier_label=SYNTHETIC; outcomes=ACTUAL",
+      "concentration_flag": false
+    }
+  ],
+  "ndr_queue": {
+    "open_notifications": 62,
+    "p1_urgent": 0,
+    "p2_high": 28
+  },
+  "cod_remittance": {
+    "overdue_count": 1152,
+    "overdue_amount": 1074096.0
+  }
+}

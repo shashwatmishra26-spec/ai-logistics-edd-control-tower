@@ -1,0 +1,17 @@
+carrier,lane_class,shipment_volume,edd_adherence_pct,rto_pct,ndr_pct
+Carrier D,Local,21,94.4,14.3,42.9
+Carrier C,Local,23,90.0,13.0,26.1
+Carrier B,Local,66,88.2,22.7,30.3
+Carrier A,Local,100,84.5,27.0,48.0
+Carrier A,Metro,169,84.6,22.5,38.5
+Carrier D,Metro,86,81.8,22.1,36.0
+Carrier C,Metro,152,79.8,17.8,37.5
+Carrier B,Metro,156,79.7,17.3,37.2
+Carrier B,National,279,88.3,22.9,42.7
+Carrier C,National,319,85.7,16.6,37.0
+Carrier A,National,198,85.2,21.2,36.4
+Carrier D,National,505,83.6,19.4,35.6
+Carrier A,Regional,46,94.6,19.6,23.9
+Carrier C,Regional,77,93.8,16.9,37.7
+Carrier B,Regional,52,85.7,17.3,36.5
+Carrier D,Regional,39,80.6,17.9,30.8
