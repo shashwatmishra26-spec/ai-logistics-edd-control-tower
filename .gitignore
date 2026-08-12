@@ -8,3 +8,11 @@ venv/
 .DS_Store
 *.log
 outputs/*.log
+
+# Raw source workbook contains customer PII (name/phone/address) pre-masking.
+# Intentionally excluded from version control -- see docs/data_assumptions.md.
+data/raw/*.xlsx
+
+# Trained model binary (pickle-based); regenerate locally via run_pipeline.py.
+outputs/*.joblib
+
