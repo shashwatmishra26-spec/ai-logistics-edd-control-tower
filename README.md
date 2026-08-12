@@ -2,7 +2,7 @@
 
 An end-to-end, working AI-powered logistics control tower for an Indian
 D2C e-commerce shipper — built from a raw shipment workbook to a trained ML
-risk model, five decision-support agents, a central AI decision engine, an
+risk model, six decision-support agents, a central AI decision engine, an
 intervention simulator, and an executive dashboard. Every number is
 reproducible from the raw data with one command.
 
@@ -14,6 +14,17 @@ to change, and *how much* of the 85%→94% gap can be closed by which
 interventions — clearly separating what's ACTUAL, what's DERIVED, what's a
 documented SYNTHETIC assumption, what's an AI_PREDICTED model output, and
 what's a forward-looking PROJECTED/SIMULATED scenario.
+
+**The dashboard's primary objective** (everything else is supporting
+analytics below it): which lanes are about to breach EDD for shipments
+still in transit — with a mock customer-care update and push notification
+already queued for each at-risk shipment; a direct, transparent suggestion
+of how many days of EDD padding an underperforming lane needs (or an
+explicit "no, that's not your problem" when the gap is really NDR/RTO); and,
+for every delivery that could not be completed, a consolidated NDR report,
+a mock customer-care digest email, and a PII-safe IVR call sheet for getting
+a landmark, address confirmation, or alternate phone number from the
+customer.
 
 ➡️ **Start here for the numbers:** [`docs/business_impact.md`](docs/business_impact.md)
 ➡️ **Start here for the "how":** [`docs/methodology.md`](docs/methodology.md)
@@ -66,9 +77,12 @@ test, not a bug.
 
 ```
 Raw workbook -> Ingest -> Clean -> Feature Engineering -> EDD Risk Model
-     -> Predictions -> {Lane Engine, Carrier Engine, NDR Agent, COD Agent}
+     -> Predictions -> {EDD Breach Alerts, Lane Engine (+ padding recs),
+                         Carrier Engine, NDR Agent (+ consolidated report/
+                         IVR/outreach), COD Agent}
      -> Central Decision Engine -> Root-Cause Engine -> Intervention Simulator
-     -> Dashboard
+     -> Dashboard (breach alerts / padding / NDR outreach are primary;
+                    trend charts and scorecards are supporting analytics)
 ```
 
 Full diagram and design rationale: [`docs/architecture.md`](docs/architecture.md).
@@ -88,17 +102,18 @@ ai-logistics-edd-control-tower/
 │   ├── features/                <- build_features.py
 │   ├── models/                  <- edd_risk_model.py, intervention_simulator.py
 │   ├── predictions/             <- predict.py
-│   ├── lane_engine/              <- lane_intelligence.py
+│   ├── alerts_agent/             <- edd_breach_alerts.py (in-transit breach detection, primary objective)
+│   ├── lane_engine/              <- lane_intelligence.py (lane scorecard + padding recommendations, primary objective)
 │   ├── carrier_engine/           <- carrier_optimization.py
-│   ├── ndr_agent/                <- ndr_recovery.py
+│   ├── ndr_agent/                <- ndr_recovery.py, ndr_consolidated_report.py (report/IVR/outreach, primary objective)
 │   ├── remittance_agent/         <- cod_remittance.py
 │   └── decision_engine/          <- central_decision_engine.py, root_cause.py, dashboard_export.py
 ├── dashboard/
-│   ├── template.html            <- dashboard shell (charts, filters, CSS)
+│   ├── template.html            <- dashboard shell (primary breach/padding/NDR sections + supporting charts, filters, CSS)
 │   ├── build_dashboard.py        <- embeds data into template.html -> index.html
 │   ├── dashboard_data.json       <- generated data payload
 │   └── index.html               <- self-contained executive dashboard (open in a browser)
-├── tests/                        <- 60 automated tests, unittest
+├── tests/                        <- 87 automated tests, unittest
 ├── outputs/                       <- every agent's CSV/JSON output (generated)
 └── docs/
     ├── architecture.md
@@ -125,7 +140,7 @@ keys.
 python run_pipeline.py
 ```
 
-Runs the full pipeline end to end in ~6 seconds and regenerates every file
+Runs the full pipeline end to end in under 10 seconds and regenerates every file
 under `data/processed/`, `outputs/`, and `dashboard/`. Then open
 `dashboard/index.html` directly in a browser (no server needed — the data
 is embedded).
@@ -134,9 +149,11 @@ Any single stage can also be re-run independently once its upstream CSV
 exists, e.g.:
 
 ```bash
+python -m src.alerts_agent.edd_breach_alerts
 python -m src.lane_engine.lane_intelligence
 python -m src.carrier_engine.carrier_optimization
 python -m src.ndr_agent.ndr_recovery
+python -m src.ndr_agent.ndr_consolidated_report
 ```
 
 ### Run the tests
@@ -145,25 +162,30 @@ python -m src.ndr_agent.ndr_recovery
 python -m unittest discover -s tests -v
 ```
 
-60 tests across data ingestion, cleaning, date math, EDD/NDR/RTO
+87 tests across data ingestion, cleaning, date math, EDD/NDR/RTO
 classification, lane and carrier scoring (including statistical
 significance edge cases), the ML model, the prediction pipeline, the
-remittance-trigger rule, notification generation, and the decision engine
-— including edge cases (empty dataframes, zero-volume carriers, duplicate
-AWBs, invalid pincodes, extreme outlier amounts). All pass; see
-`tests/` for the full suite.
+remittance-trigger rule, notification generation, the decision engine, the
+EDD breach-alert agent, the lane padding recommender, and the NDR
+consolidated-report/IVR/outreach agent — including edge cases (empty
+dataframes, zero-volume carriers, duplicate AWBs, invalid pincodes, extreme
+outlier amounts, lanes with an unrealistically large SLA gap). All pass;
+see `tests/` for the full suite.
 
 ## Example outputs
 
 - `outputs/edd_risk_predictions.csv` — every shipment scored with an EDD risk %, reason, and recommended action.
+- `outputs/edd_breach_alerts.csv`, `outputs/lane_breach_summary.csv` — in-transit shipments/lanes about to breach EDD, with mock care-team + push alerts (primary objective).
+- `outputs/edd_padding_recommendations.csv` — direct, transparent EDD padding suggestions per lane, or an explicit "not transit-time-driven" verdict (primary objective).
 - `outputs/lane_scorecard.csv` — every lane with a transparent Lane Health Score and status.
 - `outputs/carrier_mix_recommendations.csv` — carrier reallocation recommendations with z-test confidence.
 - `outputs/customer_care_notifications.csv` — the NDR recovery action queue.
+- `outputs/ndr_consolidated_report.csv`, `outputs/ivr_call_sheet.csv`, `outputs/ndr_customer_outreach.csv`, `outputs/ndr_care_team_digest.txt` — undelivered-shipment (NDR) consolidation, PII-safe IVR call sheet, and mock customer/care-team outreach (primary objective).
 - `outputs/cod_remittance_queue.csv` — the COD remittance follow-up queue (mock emails).
 - `outputs/central_action_queue.csv` — everything combined and ranked by priority.
 - `outputs/root_cause_analysis.md` — auto-generated 5-Why root-cause chains for the worst lanes.
 - `outputs/intervention_simulation.csv` — the auditable 85%→94% pathway.
-- `dashboard/index.html` — the executive dashboard.
+- `dashboard/index.html` — the executive dashboard (breach alerts / padding / NDR outreach lead the page; charts and scorecards are supporting analytics further down).
 
 ## Business Problem → Architecture → Pipeline → ML → Agents → Decision Engine → Dashboard → Impact
 

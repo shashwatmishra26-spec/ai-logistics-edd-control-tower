@@ -4,7 +4,8 @@ End-to-end pipeline runner for the AI Logistics EDD Control Tower.
     python run_pipeline.py
 
 Runs every stage in order: ingest -> clean -> features -> train model ->
-predict -> lane engine -> carrier engine -> NDR agent -> COD agent ->
+predict -> EDD breach alerts -> lane engine (incl. padding recs) -> carrier
+engine -> NDR agent -> NDR consolidated report/IVR/outreach -> COD agent ->
 decision engine -> root-cause -> simulation -> dashboard export -> dashboard
 build. Each stage writes its own CSV/JSON to data/processed/ or outputs/, so
 you can also run any single module independently (`python -m src.data.clean`)
@@ -20,9 +21,11 @@ def main():
         ("Build features", "src.features.build_features"),
         ("Train EDD risk + NDR models", "src.models.edd_risk_model"),
         ("Score predictions", "src.predictions.predict"),
-        ("Lane intelligence", "src.lane_engine.lane_intelligence"),
+        ("EDD breach alert agent", "src.alerts_agent.edd_breach_alerts"),
+        ("Lane intelligence (incl. padding recs)", "src.lane_engine.lane_intelligence"),
         ("Carrier optimization", "src.carrier_engine.carrier_optimization"),
         ("NDR recovery agent", "src.ndr_agent.ndr_recovery"),
+        ("NDR consolidated report + IVR + outreach", "src.ndr_agent.ndr_consolidated_report"),
         ("COD remittance agent", "src.remittance_agent.cod_remittance"),
         ("Central decision engine", "src.decision_engine.central_decision_engine"),
         ("Root-cause engine", "src.decision_engine.root_cause"),
