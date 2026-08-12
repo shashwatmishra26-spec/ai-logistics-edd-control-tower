@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Logistics EDD Control Tower — Executive Dashboard</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline-axis:  #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1: #2a78d6; /* blue */
+    --series-2: #eb6834; /* orange */
+    --series-3: #1baf7a; /* aqua */
+    --series-4: #eda100; /* yellow */
+    --series-5: #e87ba4; /* magenta */
+    --series-6: #008300; /* green */
+    --series-7: #4a3aa7; /* violet */
+    --series-8: #e34948; /* red */
+    --good:     #0ca30c;
+    --warning:  #fab219;
+    --serious:  #ec835a;
+    --critical: #d03b3b;
+    --success-text: #006300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --page: #0d0d0d; --text-primary: #ffffff;
+      --text-secondary: #c3c2b7; --text-muted: #898781; --gridline: #2c2c2a;
+      --baseline-axis: #383835; --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+      --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+      --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #e66767;
+      --success-text: #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --page: #0d0d0d; --text-primary: #ffffff;
+    --text-secondary: #c3c2b7; --text-muted: #898781; --gridline: #2c2c2a;
+    --baseline-axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+    --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #e66767;
+    --success-text: #0ca30c;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--page); color: var(--text-primary); }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 20px 24px 60px; }
+  header.top { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom: 18px;}
+  header.top h1 { font-size: 22px; margin: 0 0 4px; }
+  header.top p.sub { margin:0; color: var(--text-secondary); font-size: 13px; }
+  .theme-toggle { border:1px solid var(--border); background:var(--surface-1); color:var(--text-primary); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; }
+  .legend-strip { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color: var(--text-secondary); margin: 6px 0 20px; }
+  .legend-strip span.dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+  .legend-strip .actual .dot{background:var(--series-1)} .legend-strip .predicted .dot{background:var(--series-7)}
+  .legend-strip .projected .dot{background:var(--series-4)} .legend-strip .derived .dot{background:var(--series-3)}
+  .legend-strip .synthetic .dot{background:var(--text-muted)}
+
+  .filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; background: var(--surface-1); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom: 20px; }
+  .filters label { font-size:11px; color:var(--text-muted); display:block; margin-bottom:3px; }
+  .filters select { font-size:13px; padding:6px 8px; border-radius:6px; border:1px solid var(--border); background:var(--surface-1); color:var(--text-primary); min-width:130px; }
+  .filters button { align-self:flex-end; border:1px solid var(--border); background:transparent; color:var(--text-secondary); border-radius:6px; padding:7px 12px; cursor:pointer; font-size:12px; }
+
+  .kpi-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:22px; }
+  .kpi { background:var(--surface-1); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .kpi .label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; }
+  .kpi .value { font-size:26px; font-weight:600; margin-top:4px; }
+  .kpi .delta { font-size:12px; margin-top:3px; }
+  .kpi .delta.good { color: var(--success-text); }
+  .kpi .delta.bad { color: var(--critical); }
+  .kpi .tag { display:inline-block; font-size:9.5px; padding:1px 6px; border-radius:99px; margin-top:6px; background:var(--gridline); color:var(--text-secondary); }
+
+  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px; }
+  .grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; margin-bottom:16px; }
+  @media (max-width: 980px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .card { background:var(--surface-1); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+  .card h3 { font-size:14px; margin:0 0 2px; }
+  .card p.desc { font-size:11.5px; color:var(--text-muted); margin:0 0 12px; }
+  .card .foot-note { font-size:11px; color: var(--text-muted); margin-top:8px; }
+
+  svg text { fill: var(--text-secondary); font-size: 10.5px; font-family: system-ui, sans-serif; }
+  svg .grid { stroke: var(--gridline); stroke-width:1; }
+  svg .axis { stroke: var(--baseline-axis); stroke-width:1; }
+  .tooltip { position:fixed; pointer-events:none; background:var(--text-primary); color:var(--surface-1); font-size:11px; padding:6px 9px; border-radius:6px; opacity:0; transition:opacity .1s; z-index:50; max-width:240px; }
+
+  table.dt { width:100%; border-collapse:collapse; font-size:12px; }
+  table.dt th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.02em; color:var(--text-muted); border-bottom:1px solid var(--gridline); padding:6px 8px; }
+  table.dt td { padding:7px 8px; border-bottom:1px solid var(--gridline); color:var(--text-secondary); }
+  table.dt tr:hover td { background: rgba(128,128,128,0.06); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:99px; font-size:10.5px; font-weight:600; }
+  .pill.p1 { background: rgba(208,59,59,0.12); color: var(--critical); }
+  .pill.p2 { background: rgba(250,178,25,0.15); color:#9a6b00; }
+  .pill.p3 { background: rgba(11,163,11,0.12); color: var(--success-text); }
+  [data-theme="dark"] .pill.p2, @media (prefers-color-scheme: dark){ .pill.p2{ color:#fab219;} }
+
+  footer.notes { margin-top: 26px; font-size:11.5px; color:var(--text-muted); border-top:1px solid var(--border); padding-top:14px; line-height:1.6; }
+  code { background: var(--gridline); padding:1px 5px; border-radius:4px; font-size:11px; }
+</style>
+</head>
+<body>
+<div class="viz-root">
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>AI Logistics EDD Control Tower</h1>
+      <p class="sub">Executive view · Snapshot __SNAPSHOT_DATE__ · Baseline ACTUAL EDD adherence __BASELINE_PCT__% → Target __TARGET_PCT__%</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle">Toggle dark mode</button>
+  </header>
+
+  <div class="legend-strip">
+    <span class="actual"><span class="dot"></span>ACTUAL — observed in source data</span>
+    <span class="derived"><span class="dot"></span>DERIVED — computed from actual fields</span>
+    <span class="synthetic"><span class="dot"></span>SYNTHETIC — industry-informed assumption (carrier, lane, distance)</span>
+    <span class="predicted"><span class="dot"></span>AI_PREDICTED — model output</span>
+    <span class="projected"><span class="dot"></span>PROJECTED/SIMULATED — intervention scenario, not realized</span>
+  </div>
+
+  <div class="filters">
+    <div><label>Carrier</label><select id="f-carrier"><option value="">All</option></select></div>
+    <div><label>Lane</label><select id="f-lane"><option value="">All</option></select></div>
+    <div><label>Payment Mode</label><select id="f-payment"><option value="">All</option></select></div>
+    <div><label>Status</label><select id="f-status"><option value="">All</option></select></div>
+    <button id="f-reset">Reset filters</button>
+  </div>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>EDD Adherence Trend (weekly, ACTUAL)</h3>
+      <p class="desc">Share of delivered shipments meeting the promised EDD, by order week.</p>
+      <div id="chartEddTrend"></div>
+    </div>
+    <div class="card">
+      <h3>Baseline → AI Intervention → Projected (PROJECTED/SIMULATED)</h3>
+      <p class="desc">Bottom-up, auditable intervention stack. See <code>outputs/intervention_simulation.csv</code> for the formula behind every bar.</p>
+      <div id="chartSimulation"></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Carrier Performance (EDD Adherence %)</h3>
+      <p class="desc">Carrier label is SYNTHETIC (no carrier field in source data); outcomes shown are ACTUAL. See docs/data_assumptions.md.</p>
+      <div id="chartCarrier"></div>
+    </div>
+    <div class="card">
+      <h3>Lane Class Performance</h3>
+      <p class="desc">Local / Metro / Regional / National — DERIVED from pincode geography.</p>
+      <div id="chartLane"></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <h3>NDR Pareto</h3>
+      <p class="desc">ACTUAL NDR reasons, ranked by frequency.</p>
+      <div id="chartNdrPareto"></div>
+    </div>
+    <div class="card">
+      <h3>RTO Trend (weekly, ACTUAL)</h3>
+      <div id="chartRtoTrend"></div>
+    </div>
+    <div class="card">
+      <h3>At-Risk Shipment Funnel</h3>
+      <p class="desc">Open shipments by AI_PREDICTED risk escalation stage.</p>
+      <div id="chartFunnel"></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Carrier Mix (Volume Share)</h3>
+      <div id="chartCarrierMix"></div>
+    </div>
+    <div class="card">
+      <h3>Lanes Requiring Intervention</h3>
+      <p class="desc">Lane Health Score &lt; 75 or RTO% &gt; 25%, min. 20 shipments — see docs/methodology.md.</p>
+      <div id="lanesTable"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>Central AI Decision Engine — Top Priority Actions</h3>
+    <p class="desc">Combined output of every agent, ranked by priority. Full queue: <code>outputs/central_action_queue.csv</code>.</p>
+    <div id="actionTable"></div>
+  </div>
+
+  <footer class="notes">
+    <p><strong>Data confidence:</strong> ACTUAL fields are taken as-is from the source workbook. DERIVED fields are computed via arithmetic/date logic on ACTUAL fields (e.g. transit days, EDD miss flag). SYNTHETIC fields (carrier, AWB, hub, distance, lane class, SLA targets) do not exist in the source data and are industry-informed assumptions, fully documented in <code>docs/data_assumptions.md</code>. AI_PREDICTED fields are outputs of the trained ML models in <code>src/models/</code>. PROJECTED/SIMULATED values in the intervention simulator are forward-looking scenarios, never a restatement of historical performance.</p>
+    <p>Generated by the AI Logistics EDD Control Tower pipeline — see <code>README.md</code> for how to reproduce every number on this page from <code>data/raw/</code>.</p>
+  </footer>
+</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const DATA = __DASHBOARD_DATA_JSON__;
+</script>
+<script>
+(function(){
+  // ---------- theme toggle ----------
+  const root = document.documentElement;
+  document.getElementById('themeToggle').addEventListener('click', function(){
+    const cur = root.getAttribute('data-theme');
+    root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  });
+
+  const tooltip = document.getElementById('tooltip');
+  function showTip(evt, html){ tooltip.innerHTML = html; tooltip.style.left = (evt.clientX+12)+'px'; tooltip.style.top=(evt.clientY+12)+'px'; tooltip.style.opacity=1; }
+  function hideTip(){ tooltip.style.opacity=0; }
+
+  const SERIES = ['var(--series-1)','var(--series-2)','var(--series-3)','var(--series-4)','var(--series-5)','var(--series-6)','var(--series-7)','var(--series-8)'];
+
+  // ---------- generic SVG bar chart (vertical) ----------
+  function barChart(containerId, items, opts){
+    opts = opts || {};
+    const w = opts.width || 420, h = opts.height || 220, pad = {t:14,r:14,b:44,l:44};
+    const max = opts.max !== undefined ? opts.max : Math.max(...items.map(d=>d.value), 1) * 1.15;
+    const innerW = w - pad.l - pad.r, innerH = h - pad.t - pad.b;
+    const bw = innerW / items.length;
+    let gridLines = '';
+    const steps = 4;
+    for(let i=0;i<=steps;i++){
+      const y = pad.t + innerH - (innerH*i/steps);
+      const val = Math.round(max*i/steps);
+      gridLines += `<line class="grid" x1="${pad.l}" y1="${y}" x2="${w-pad.r}" y2="${y}"></line>`;
+      gridLines += `<text x="${pad.l-6}" y="${y+3}" text-anchor="end">${val}${opts.suffix||''}</text>`;
+    }
+    let bars = '';
+    items.forEach((d,i)=>{
+      const bh = Math.max(2, innerH * (d.value/max));
+      const x = pad.l + i*bw + bw*0.15;
+      const bw2 = bw*0.7;
+      const y = pad.t + innerH - bh;
+      const color = d.color || SERIES[i % SERIES.length];
+      bars += `<rect x="${x}" y="${y}" width="${bw2}" height="${bh}" rx="4" fill="${color}" data-tip="${(d.label+': '+d.value+(opts.suffix||'')+(d.n?(' (n='+d.n+')'):'')).replace(/"/g,'&quot;')}"></rect>`;
+      bars += `<text x="${x+bw2/2}" y="${h-pad.b+16}" text-anchor="middle">${d.label}</text>`;
+      if(opts.showValue) bars += `<text x="${x+bw2/2}" y="${y-5}" text-anchor="middle" style="font-weight:600;fill:var(--text-primary)">${d.value}${opts.suffix||''}</text>`;
+    });
+    const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${gridLines}<line class="axis" x1="${pad.l}" y1="${pad.t+innerH}" x2="${w-pad.r}" y2="${pad.t+innerH}"></line>${bars}</svg>`;
+    document.getElementById(containerId).innerHTML = svg;
+    attachBarTooltips(containerId);
+  }
+
+  function hBarChart(containerId, items, opts){
+    opts = opts || {};
+    const w = opts.width || 420, rowH = opts.rowH || 26, pad = {t:8,r:50,b:8,l:opts.leftPad||120};
+    const h = pad.t + pad.b + items.length*rowH;
+    const max = opts.max !== undefined ? opts.max : Math.max(...items.map(d=>d.value),1) * 1.1;
+    const innerW = w - pad.l - pad.r;
+    let bars='';
+    items.forEach((d,i)=>{
+      const y = pad.t + i*rowH;
+      const bw = Math.max(2, innerW * (d.value/max));
+      const color = d.color || SERIES[i % SERIES.length];
+      bars += `<text x="${pad.l-8}" y="${y+rowH*0.65}" text-anchor="end">${d.label}</text>`;
+      bars += `<rect x="${pad.l}" y="${y+4}" width="${bw}" height="${rowH-10}" rx="4" fill="${color}" data-tip="${(d.label+': '+d.value+(opts.suffix||'')).replace(/"/g,'&quot;')}"></rect>`;
+      bars += `<text x="${pad.l+bw+6}" y="${y+rowH*0.65}">${d.value}${opts.suffix||''}</text>`;
+    });
+    const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${bars}</svg>`;
+    document.getElementById(containerId).innerHTML = svg;
+    attachBarTooltips(containerId);
+  }
+
+  function lineChart(containerId, series, opts){
+    opts = opts || {};
+    const w = opts.width || 420, h = opts.height || 220, pad = {t:14,r:14,b:36,l:44};
+    const innerW = w-pad.l-pad.r, innerH = h-pad.t-pad.b;
+    const allVals = series.values;
+    const max = opts.max !== undefined ? opts.max : Math.max(...allVals)*1.1;
+    const min = opts.min !== undefined ? opts.min : Math.min(0, Math.min(...allVals)*0.9);
+    const n = series.labels.length;
+    const stepX = n>1 ? innerW/(n-1) : innerW;
+    let gridLines='';
+    const steps=4;
+    for(let i=0;i<=steps;i++){
+      const val = min + (max-min)*i/steps;
+      const y = pad.t + innerH - innerH*i/steps;
+      gridLines += `<line class="grid" x1="${pad.l}" y1="${y}" x2="${w-pad.r}" y2="${y}"></line>`;
+      gridLines += `<text x="${pad.l-6}" y="${y+3}" text-anchor="end">${Math.round(val)}${opts.suffix||''}</text>`;
+    }
+    const pts = allVals.map((v,i)=>{
+      const x = pad.l + i*stepX;
+      const y = pad.t + innerH - innerH*((v-min)/(max-min||1));
+      return [x,y];
+    });
+    const path = pts.map((p,i)=> (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    let dots='';
+    pts.forEach((p,i)=>{
+      dots += `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--series-1)" data-tip="${(series.labels[i]+': '+allVals[i]+(opts.suffix||'')).replace(/"/g,'&quot;')}"></circle>`;
+    });
+    let xlabels='';
+    const labelEvery = Math.ceil(n/6);
+    series.labels.forEach((l,i)=>{ if(i%labelEvery===0) xlabels += `<text x="${pad.l+i*stepX}" y="${h-8}" text-anchor="middle">${l.slice(5)}</text>`; });
+    let target='';
+    if(opts.targetLine !== undefined){
+      const ty = pad.t + innerH - innerH*((opts.targetLine-min)/(max-min||1));
+      target = `<line x1="${pad.l}" y1="${ty}" x2="${w-pad.r}" y2="${ty}" stroke="var(--series-4)" stroke-width="1.5" stroke-dasharray="4,3"></line><text x="${w-pad.r}" y="${ty-4}" text-anchor="end" fill="var(--series-4)">Target ${opts.targetLine}${opts.suffix||''}</text>`;
+    }
+    const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${gridLines}<line class="axis" x1="${pad.l}" y1="${pad.t+innerH}" x2="${w-pad.r}" y2="${pad.t+innerH}"></line>${target}<path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2"></path>${dots}${xlabels}</svg>`;
+    document.getElementById(containerId).innerHTML = svg;
+    attachBarTooltips(containerId);
+  }
+
+  function attachBarTooltips(containerId){
+    const container = document.getElementById(containerId);
+    container.querySelectorAll('[data-tip]').forEach(el=>{
+      el.addEventListener('mousemove', e=>showTip(e, el.getAttribute('data-tip')));
+      el.addEventListener('mouseleave', hideTip);
+    });
+  }
+
+  // ---------- KPI tiles ----------
+  function statusClass(val, goodMin, warnMin){
+    if(val>=goodMin) return 'good'; if(val>=warnMin) return ''; return 'bad';
+  }
+  function renderKpis(filtered){
+    const total = filtered.length;
+    const delivered = filtered.filter(d=>d.is_delivered);
+    const edd = delivered.length ? delivered.filter(d=>d.edd_met).length/delivered.length : 0;
+    const rto = total? filtered.filter(d=>d.is_rto).length/total : 0;
+    const lost = total? filtered.filter(d=>d.is_lost).length/total : 0;
+    const ndr = total? filtered.filter(d=>d.has_ndr).length/total : 0;
+    const openN = filtered.filter(d=>d.is_open).length;
+    const highRisk = filtered.filter(d=>d.is_open && d.edd_risk_score>=60).length;
+    const target = DATA.meta.edd_target*100;
+    const tiles = [
+      {label:'EDD Adherence (ACTUAL)', value:(edd*100).toFixed(1)+'%', delta:(edd*100>=85?'good':'bad'), tag:'ACTUAL', note:(edd*100-target).toFixed(1)+'pp vs target'},
+      {label:'Target', value: target.toFixed(0)+'%', tag:'GOAL'},
+      {label:'At-Risk Open Shipments', value: highRisk, tag:'AI_PREDICTED', note: openN+' open total'},
+      {label:'NDR %', value:(ndr*100).toFixed(1)+'%', tag:'ACTUAL'},
+      {label:'RTO %', value:(rto*100).toFixed(1)+'%', tag:'ACTUAL'},
+      {label:'Lost %', value:(lost*100).toFixed(2)+'%', tag:'ACTUAL'},
+      {label:'Shipments (filtered)', value: total, tag:'ACTUAL'},
+    ];
+    document.getElementById('kpiRow').innerHTML = tiles.map(t=>`
+      <div class="kpi">
+        <div class="label">${t.label}</div>
+        <div class="value">${t.value}</div>
+        ${t.note?`<div class="delta ${t.delta||''}">${t.note}</div>`:''}
+        <span class="tag">${t.tag}</span>
+      </div>`).join('');
+  }
+
+  // ---------- filters ----------
+  function uniq(arr, key){ return [...new Set(arr.map(d=>d[key]))].filter(Boolean).sort(); }
+  function populateSelect(id, values){
+    const sel = document.getElementById(id);
+    values.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+  }
+  populateSelect('f-carrier', uniq(DATA.shipments,'carrier'));
+  populateSelect('f-lane', uniq(DATA.shipments,'lane_class'));
+  populateSelect('f-payment', uniq(DATA.shipments,'payment_mode'));
+  populateSelect('f-status', uniq(DATA.shipments,'current_status'));
+
+  function currentFilters(){
+    return {
+      carrier: document.getElementById('f-carrier').value,
+      lane: document.getElementById('f-lane').value,
+      payment: document.getElementById('f-payment').value,
+      status: document.getElementById('f-status').value,
+    };
+  }
+  function applyFilters(){
+    const f = currentFilters();
+    return DATA.shipments.filter(d =>
+      (!f.carrier || d.carrier===f.carrier) &&
+      (!f.lane || d.lane_class===f.lane) &&
+      (!f.payment || d.payment_mode===f.payment) &&
+      (!f.status || d.current_status===f.status)
+    );
+  }
+  function rerender(){
+    const filtered = applyFilters();
+    renderKpis(filtered);
+  }
+  ['f-carrier','f-lane','f-payment','f-status'].forEach(id=> document.getElementById(id).addEventListener('change', rerender));
+  document.getElementById('f-reset').addEventListener('click', ()=>{
+    ['f-carrier','f-lane','f-payment','f-status'].forEach(id=> document.getElementById(id).value='');
+    rerender();
+  });
+
+  // ---------- static charts (from pre-aggregated, statistically-vetted outputs) ----------
+  function renderStaticCharts(){
+    barChart('chartEddTrend', [], {}); // placeholder cleared below
+    lineChart('chartEddTrend', {
+      labels: DATA.edd_trend_weekly.map(d=>d.order_week),
+      values: DATA.edd_trend_weekly.map(d=>d.edd_adherence_pct),
+    }, {suffix:'%', targetLine: DATA.meta.edd_target*100, min:60, max:100});
+
+    lineChart('chartRtoTrend', {
+      labels: DATA.rto_trend_weekly.map(d=>d.order_week),
+      values: DATA.rto_trend_weekly.map(d=>d.rto_pct),
+    }, {suffix:'%', min:0});
+
+    barChart('chartCarrier', DATA.carrier_scorecard.map(d=>({label:d.carrier.replace('Carrier ',''), value:d.edd_adherence_pct, n:d.shipment_volume})), {suffix:'%', max:100, showValue:true});
+
+    const laneAgg = {};
+    DATA.shipments.forEach(s=>{
+      if(!laneAgg[s.lane_class]) laneAgg[s.lane_class] = {delivered:0, met:0};
+      if(s.is_delivered){ laneAgg[s.lane_class].delivered++; if(s.edd_met) laneAgg[s.lane_class].met++; }
+    });
+    const laneOrder = ['Local','Metro','Regional','National'];
+    barChart('chartLane', laneOrder.filter(l=>laneAgg[l]).map(l=>({label:l, value: Math.round(laneAgg[l].met/laneAgg[l].delivered*1000)/10, n: laneAgg[l].delivered})), {suffix:'%', max:100, showValue:true});
+
+    hBarChart('chartNdrPareto', DATA.ndr_pareto.slice(0,7).map(d=>({label:d.reason, value:d.count})), {leftPad:190, width:420});
+
+    const funnelShortLabels = {'Open Shipments':'Open','Flagged Medium+ Risk':'Medium+','Flagged High Risk':'High','Active NDR':'NDR','In Central Action Queue':'Queued'};
+    barChart('chartFunnel', DATA.at_risk_funnel.map(d=>({label:funnelShortLabels[d.stage] || d.stage, value:d.count})), {showValue:true});
+
+    hBarChart('chartCarrierMix', DATA.carrier_mix.map(d=>({label:d.carrier, value:d.volume_share_pct})), {suffix:'%', leftPad:90});
+
+    // Simulation waterfall
+    const simShortLabels = ['Baseline','+ Risk','+ NDR','+ Lane','+ Carrier','+ Escalate'];
+    barChart('chartSimulation', DATA.simulation.map((d,i)=>({
+      label: simShortLabels[i] || ('Step '+(i+1)),
+      value: Math.round(d.cumulative_edd_adherence*1000)/10,
+      color: d.label==='ACTUAL' ? 'var(--series-1)' : (d.label==='PROJECTED' ? 'var(--series-3)' : 'var(--series-4)')
+    })), {suffix:'%', max:100, showValue:true, width:460, height:250});
+
+    // Lanes table
+    const worstLanes = DATA.lane_scorecard.filter(l=>l.lane_status==='Intervention Required' || l.lane_status==='Deteriorating')
+      .sort((a,b)=>a.lane_health_score-b.lane_health_score).slice(0,8);
+    document.getElementById('lanesTable').innerHTML = `<table class="dt"><thead><tr><th>City</th><th>Lane</th><th>Health</th><th>EDD%</th><th>RTO%</th><th>NDR%</th><th>Status</th></tr></thead><tbody>${
+      worstLanes.map(l=>`<tr><td>${l.customer_city}</td><td>${l.lane_class}</td><td>${l.lane_health_score}</td><td>${l.edd_adherence_pct}%</td><td>${l.rto_pct}%</td><td>${l.ndr_pct}%</td><td>${l.lane_status}</td></tr>`).join('')
+    }</tbody></table>`;
+
+    // Action queue table
+    const rows = DATA.action_queue_sample.slice(0,15);
+    document.getElementById('actionTable').innerHTML = `<table class="dt"><thead><tr><th>Priority</th><th>Agent</th><th>Entity</th><th>Issue</th><th>Recommended Action</th><th>Expected Impact</th></tr></thead><tbody>${
+      rows.map(r=>{
+        const p = r.priority.startsWith('P1') ? 'p1' : (r.priority.startsWith('P2') ? 'p2' : 'p3');
+        return `<tr><td><span class="pill ${p}">${r.priority}</span></td><td>${r.source_agent}</td><td>${r.entity}</td><td>${r.issue}</td><td>${r.recommended_action}</td><td>${r.expected_impact}</td></tr>`;
+      }).join('')
+    }</tbody></table>`;
+  }
+
+  renderStaticCharts();
+  rerender();
+})();
+</script>
+</body>
+</html>
