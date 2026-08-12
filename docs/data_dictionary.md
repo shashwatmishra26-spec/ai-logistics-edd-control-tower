@@ -6,6 +6,8 @@ Every field that flows through the pipeline, classified as:
 - **DERIVED** — computed deterministically from ACTUAL fields (date math, boolean flags, groupby aggregates). No assumption is injected; re-running the arithmetic on the same ACTUAL fields always reproduces the same value.
 - **SYNTHETIC** — does not exist in the source data at all. Generated from an industry-informed, documented rule (never randomly). Full rationale for every SYNTHETIC field is in [`data_assumptions.md`](data_assumptions.md).
 - **AI_PREDICTED** — output of a trained ML model (`src/models/edd_risk_model.py`). Only ever applies to future/uncertain outcomes, never restates a known ACTUAL outcome.
+- **SIMULATED** — a forward-looking scenario computed from ACTUAL/DERIVED history but not a realized outcome (e.g. "if this lane's SLA were padded by N days, what fraction of past deliveries would have met it"). Never presented as a proven future result.
+- **MOCK** — generated message *content* (a push notification, email, or care-team ticket) that is never actually sent anywhere. Used only for the outbound-communication fields in the breach-alert and NDR-outreach agents; the underlying risk score or trigger driving the message may itself be ACTUAL/DERIVED/AI_PREDICTED — MOCK describes the delivery channel, not the logic.
 
 ## 1. Source workbook fields (as received)
 
@@ -87,3 +89,32 @@ Lane (`outputs/lane_scorecard.csv`), Carrier (`outputs/carrier_scorecard.csv`), 
 ## 6. Simulation fields (`outputs/intervention_simulation.csv`)
 
 `cumulative_edd_adherence` per stage is labeled `ACTUAL` (baseline only), `PROJECTED` (interventions 1–4, each bottom-up from an explicit, auditable formula), or `SIMULATED` (the final residual-gap-closing stage — an upper-bound scenario, not a bottom-up estimate). See `methodology.md` and `business_impact.md` for the full, honest breakdown of what is proven vs. assumed.
+
+## 7. EDD Breach Alert fields (`outputs/edd_breach_alerts.csv`, `outputs/lane_breach_summary.csv`)
+
+| Field | Confidence | Definition |
+|---|---|---|
+| `days_to_edd`, `edd_already_breached` | DERIVED | `edd - SNAPSHOT_DATE` in days on an open shipment; negative means the promise has already passed. |
+| `alert_priority` | AI_PREDICTED (rule on top of `risk_tier`) | P1/P2/P3, per the table in `methodology.md` §3. |
+| `care_team_update`, `push_notification_title`, `push_notification_body` | MOCK | Generated message content; no real ticket or notification is sent. |
+| `at_risk_shipments`, `at_risk_pct`, `lane_status` (lane summary) | DERIVED | Aggregation of the shipment-level alert queue by `(customer_city, lane_class)`. |
+
+## 8. Lane EDD Padding fields (`outputs/edd_padding_recommendations.csv`)
+
+| Field | Confidence | Definition |
+|---|---|---|
+| `p90_actual_transit_days` | DERIVED | 90th percentile of `transit_actual_days` on that lane's delivered shipments. |
+| `recommended_padding_days`, `new_transit_sla_days` | DERIVED (formula) | See the transparent formula in `methodology.md` §5 — capped at `MAX_RECOMMENDED_PADDING_DAYS`. |
+| `current_pct_meeting_transit_sla`, `projected_pct_meeting_transit_sla`, `projected_lift_pp` | SIMULATED | Backtest of the current vs. padded SLA against historical transit-time distribution — not a promise of future results. |
+| `rationale` | DERIVED (generated text) | Explains the recommendation, or explicitly states why 0 padding is recommended (EDD gap is NDR/RTO-driven, not transit-time-driven). |
+
+## 9. NDR Consolidation / IVR / Outreach fields (`outputs/ndr_consolidated_report.csv`, `outputs/ivr_call_sheet.csv`, `outputs/ndr_customer_outreach.csv`, `outputs/ndr_care_team_digest.txt`)
+
+| Field | Confidence | Definition |
+|---|---|---|
+| `open_count`, `pct_of_open_queue`, `avg_reattempt_success_probability` (consolidated report) | DERIVED | Aggregation of the NDR Recovery Agent's queue (§2 masking already applied upstream) by reason and by lane. |
+| `info_needed`, `call_script` (IVR sheet) | DERIVED (rule) | Mapped from `ndr_reason` — what an outbound caller should ask for (landmark / address confirmation / alternate phone number). |
+| `contact_lookup_key` | DERIVED | `shipment_id` (itself a hash — see §2). A real deployment resolves the actual phone number/address from a secure CRM using this key **at call/send time**; it is never stored in this analytics output. |
+| `push_notification_title/body`, `email_subject/body` (outreach + care-team digest) | MOCK | Generated message content; no real push notification or email is ever sent. |
+
+No field in §7–§9 contains a real customer name, phone number, or address at any point — see the privacy note in `src/ndr_agent/ndr_consolidated_report.py` and §2 above.

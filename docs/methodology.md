@@ -63,7 +63,48 @@ carrier/lane historical rate features materially). The model is fast
 enough (<2s) to retrain on every pipeline run in production; no incremental
 training infrastructure is needed at this data volume.
 
-## 3. Lane Health Score
+## 3. EDD Breach Alert Agent (primary objective)
+
+This agent does not re-score anything — it is a narrower, action-first
+filter on top of the EDD Risk Prediction Agent's output (§2). It answers one
+question directly: **which shipments still in transit are about to miss (or
+have already missed) their promised EDD, right now.**
+
+**Filter:** open shipments (`is_open == True`) whose `risk_tier` is
+High or Medium. Low-risk open shipments are not alerted — alerting on every
+open shipment would drown the signal.
+
+**Priority (`alert_priority`), fully rule-based and reproducible:**
+
+| Condition | Priority |
+|---|---|
+| `days_to_edd < 0` (EDD already passed, still moving) | P1 - Urgent |
+| High risk AND `days_to_edd <= BREACH_ALERT_URGENT_DAYS` (1 day) | P1 - Urgent |
+| High risk AND `days_to_edd <= BREACH_ALERT_HIGH_DAYS` (3 days) | P2 - High |
+| Medium risk AND `days_to_edd <= BREACH_ALERT_URGENT_DAYS` (1 day) | P2 - High |
+| Everything else that cleared the risk-tier filter | P3 - Standard |
+
+For each alerted shipment, the agent generates a **mock** (never actually
+sent — see `docs/data_assumptions.md`) customer-care queue update and a
+push-notification title/body, so the output is directly actionable rather
+than just another risk score.
+
+**Lane roll-up:** `lane_breach_summary.csv` aggregates by
+`(customer_city, lane_class)` — `at_risk_pct` = at-risk shipments ÷ open
+shipments on that lane. Lanes below `MIN_OPEN_VOLUME_FOR_BREACH_SUMMARY` (5
+open shipments) are marked "Insufficient Sample" rather than scored, same
+discipline as the Lane Health Score in §4. A lane is "Breach Risk" if any
+shipment has already breached its EDD or `at_risk_pct >= 50%`; "Watch" if
+`>= 25%`; else "Healthy".
+
+**Honest finding on this dataset:** because `SNAPSHOT_DATE` in this demo
+dataset (2026-03-05) is fixed while the raw workbook's open shipments carry
+a range of order dates, most currently-open shipments already show an EDD
+date in the past relative to the snapshot. That is a property of working
+with a static historical extract, not a bug in the agent — in a live system
+`SNAPSHOT_DATE` is "now," so this skew would not occur in production.
+
+## 4. Lane Health Score
 
 Transparent weighted formula (no black box):
 
@@ -86,7 +127,53 @@ Status thresholds: `>=90` Best Performing; trend down `>=8pp` over the
 observed period → Deteriorating; `<75` health or `>25%` RTO → Intervention
 Required; else Watch.
 
-## 4. Carrier Optimization — statistical rigor
+## 5. Lane EDD Padding Recommender (primary objective)
+
+This is the "direct suggestion to add X days of padding" agent — but it is
+deliberately not a blanket "pad every underperforming lane" rule, because
+padding an EDD promise only helps when the promise itself was unrealistic;
+it does nothing for a lane whose real problem is NDR or RTO.
+
+**Eligibility:** a lane is evaluated only if its EDD adherence is below
+`PADDING_EDD_ADHERENCE_THRESHOLD` (90%) and has at least
+`MIN_VOLUME_FOR_LANE_INTERVENTION` (20) actual delivered shipments backing
+the recommendation — the check is against the real row count in the data,
+not the lane scorecard's cached volume label.
+
+**Formula (transparent, re-computable from `shipments_features.csv`):**
+
+```
+p90_actual = 90th percentile of transit_actual_days for this lane's
+             delivered shipments
+raw_gap    = p90_actual - current_transit_sla_days
+padding    = ceil(max(0, raw_gap)), capped at MAX_RECOMMENDED_PADDING_DAYS (5)
+new_sla    = current_transit_sla_days + padding
+```
+
+In words: pad enough that ~90% of what has actually happened on this lane
+historically would clear the new promise. If `raw_gap <= 0` — i.e. the P90
+transit time is already inside the current SLA — the recommended padding is
+**0**, and the rationale explicitly redirects to NDR/RTO as the real driver
+of the EDD gap instead. If the raw gap exceeds the sanity cap, the lane is
+still given the capped padding value but flagged `manual_review_needed`
+rather than silently truncated.
+
+**Backtest (SIMULATED, not a promise of future results):** for every
+recommended padding value, the agent recomputes what percentage of that
+lane's actual historical delivered shipments would have met the current SLA
+vs. the new, padded SLA (`current_pct_meeting_transit_sla` /
+`projected_pct_meeting_transit_sla`), and reports the difference as
+`projected_lift_pp`. This is a backtest against realized history, explicitly
+labeled SIMULATED because a padded promise changing customer/ops behavior
+going forward is not something a backtest can prove.
+
+**On the current dataset:** 6 of 10 evaluated lanes get real padding (3-4
+days), all transit-time-driven, with projected lift of 37-62pp. The 4
+National lanes are correctly recommended **zero** padding — their EDD gap
+traces to NDR/RTO, not transit time, so padding their SLA would not have
+fixed the underlying problem and the agent says so.
+
+## 6. Carrier Optimization — statistical rigor
 
 For each lane class, the best- and worst-performing carrier (subject to a
 `MIN_VOLUME_FOR_RECOMMENDATION = 30` shipments threshold each) are compared
@@ -111,7 +198,7 @@ snapshot p-value, before acting on a carrier-mix change. The engine's
 `trigger_date` field and the lane engine's `trend_delta_pp` field are both
 designed to support that stronger, two-signal gate in production.
 
-## 5. NDR Recovery Agent
+## 7. NDR Recovery Agent
 
 Reattempt-success probability is **empirical**, not modeled: for each
 `(ndr_reason, attempt_number)` pair observed in the CLOSED shipment history
@@ -123,14 +210,47 @@ few historical examples). This is intentionally simpler than a full ML
 model — an ops team can audit "why does this reason get priority X" by
 looking at one groupby table, not a model's internals.
 
-## 6. COD Remittance Agent
+## 8. NDR Consolidated Report, IVR Call Sheet &amp; Outreach (primary objective)
+
+For every shipment where **delivery could not be completed** (an open NDR
+event), this agent builds the management and outreach layer on top of the
+NDR Recovery Agent's per-shipment queue (§7):
+
+- **Consolidated report** (`ndr_consolidated_report.csv`): the same open
+  queue broken down two ways — by `ndr_reason` and by `lane_class` — so a
+  manager can see where the problem is concentrated from one table instead
+  of scanning the raw queue.
+- **Care-team digest** (`ndr_care_team_digest.txt`): one mock email
+  summarizing the whole queue (counts, top reasons, top lanes, links to the
+  detailed CSVs) — not one email per shipment.
+- **IVR call sheet** (`ivr_call_sheet.csv`): what an outbound-calling team
+  should ask for, mapped from `ndr_reason` (e.g. "Landmark missing" → "ask
+  for a nearby landmark"; "Phone not reachable" → "request an alternate
+  phone number"), sorted P1 first.
+- **Customer outreach** (`ndr_customer_outreach.csv`): mock push-notification
+  and email copy asking the customer directly for the same missing
+  information.
+
+**Privacy design — read before wiring this into a real system.**
+`src/data/clean.py` masks/drops customer name, phone, and address at the
+cleaning stage (see `data_dictionary.md` §2); this pipeline never has real
+PII downstream of that step, and this repository is public. So the IVR
+sheet and outreach content are built entirely from non-PII fields
+(`shipment_uid`-derived `shipment_id`, AWB, city, NDR reason) plus a
+`contact_lookup_key` column. In a real deployment, the actual phone number
+or address a calling agent needs would be joined in **at send/call time**
+from a secure CRM using that key — it is intentionally never persisted in
+this analytics output. This is a design decision made once, up front, not
+an oversight discovered later.
+
+## 9. COD Remittance Agent
 
 Pure rule engine, no ML: `remittance_due_date = delivery_date + 2 days` for
 every delivered COD shipment (`config.REMITTANCE_DAYS_AFTER_DELIVERY`).
 Priority escalates to P1-Urgent when a remittance is both overdue and
 either high-value (>₹2,000) or more than 5 days late.
 
-## 7. Intervention Simulator — 85% → 94%, honestly
+## 10. Intervention Simulator — 85% → 94%, honestly
 
 Every stage of the simulation is bottom-up and independently recomputable
 from the CSVs the other agents already produced:
@@ -151,7 +271,7 @@ be making to reach 94% (7pp via sustained systemic investment)." See
 `business_impact.md` for how to read this number in a leadership
 conversation.
 
-## 8. Root-Cause Engine
+## 11. Root-Cause Engine
 
 For the worst lanes, a 5-Why chain is generated automatically from the
 data (NDR rate on that lane → dominant NDR reason → worst carrier on that

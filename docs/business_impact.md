@@ -17,6 +17,39 @@ RTO at **25.0%** vs. **3.0%** for Prepaid — an 8x gap that alone explains a
 large share of the EDD-adherence shortfall, since RTO shipments are, by
 definition, not on-time deliveries.
 
+## Primary objective — breach prevention & failed-delivery recovery
+
+This is the dashboard's lead section (everything above is charts and
+scorecards feeding it). Three action queues, live from the current
+snapshot:
+
+**In-transit EDD breach alerts.** 176 open shipments are High/Medium risk
+and close to (or past) their promised EDD — 167 P1-Urgent (including 166
+already past their EDD while still moving) and 8 P2-High. Each one has a
+mock customer-care queue update and push notification already queued (see
+`outputs/edd_breach_alerts.csv`). At the lane level, 4 lanes are currently
+flagged "Breach Risk" (Bangalore/Metro, Mumbai/Local, Gurgaon/Metro,
+Pune/Metro — see `outputs/lane_breach_summary.csv`).
+
+**Lane EDD padding recommendations.** Of 10 lanes evaluated, 6 get a direct,
+transparent padding recommendation (avg. +3.5 days, up to +62.6pp projected
+backtest lift on the best case) because their EDD gap is provably
+transit-time-driven (P90 actual transit time exceeds the current SLA). The
+other 4 (all National lanes: Jaipur, K.V.Rangareddy, Ghaziabad, West Delhi)
+get **zero** recommended padding — their gap traces to NDR/RTO instead, and
+padding their SLA would not fix that. See `outputs/edd_padding_recommendations.csv`
+and `methodology.md` §5 for the full formula.
+
+**Undelivered-shipment recovery (NDR).** 62 shipments currently have an
+unresolved failed-delivery event. All 62 are on the IVR call sheet
+(`outputs/ivr_call_sheet.csv`) with a PII-safe call script asking for a
+landmark, address confirmation, or alternate phone number depending on the
+reason; a mock digest email is queued for the customer-care team
+(`outputs/ndr_care_team_digest.txt`); and matching push/email outreach is
+queued for the customers themselves (`outputs/ndr_customer_outreach.csv`).
+No real name, phone, or address is used anywhere in this queue — see the
+privacy note in `src/ndr_agent/ndr_consolidated_report.py`.
+
 ## Why EDD is being missed
 
 1. **NDR is the leading driver, not carrier or distance.** 37% of all shipments experience at least one NDR event; the top three reasons — Phone not reachable (172), Landmark missing (143), Address issue (143) — are all address/contact-quality problems, not carrier execution failures. This is a customer-data-quality problem before it is a logistics-execution problem.
