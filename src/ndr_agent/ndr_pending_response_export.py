@@ -163,7 +163,7 @@ def build_workbook(ndr_queue: pd.DataFrame, snapshot_date: str) -> Workbook:
         "No real customer name, phone number, or address appears anywhere in this workbook. Each "
         "row carries a 'Shipment ID (contact_lookup_key)' only — the actual contact details are "
         "resolved at send-time via a secure CRM lookup on that key. This mirrors the same "
-        "PII-safe design used throughout the AI Logistics EDD Control Tower "
+        "PII-safe design used throughout the EDD Control Tower "
         "(see src/ndr_agent/ndr_consolidated_report.py).",
         "",
         "DATA CONFIDENCE",
