@@ -20,6 +20,7 @@ if str(ROOT_DIR) not in sys.path:
 from config.config import (  # noqa: E402
     FEATURED_SHIPMENTS_PATH,
     LANE_SCORECARD_PATH,
+    MAX_LANE_EDD_CEILING_DAYS,
     MAX_RECOMMENDED_PADDING_DAYS,
     MIN_VOLUME_FOR_LANE_INTERVENTION,
     OUTPUTS_DIR,
@@ -171,6 +172,18 @@ def compute_padding_recommendations(df: pd.DataFrame, lane_df: pd.DataFrame) -> 
     instead — padding an EDD promise doesn't fix a customer-availability or
     RTO problem, and pretending it would is exactly the kind of dishonest
     "add buffer to hit the number" move this project avoids elsewhere.
+
+    Two ceilings are enforced, whichever binds first: MAX_RECOMMENDED_PADDING_DAYS
+    (padding is never erratically high, even if the raw gap would justify more)
+    and MAX_LANE_EDD_CEILING_DAYS[lane_class] (the customer-facing promise
+    itself is never allowed past a realistic, distance-proportionate ceiling
+    — e.g. a Local lane never gets promised >2 days no matter how bad its P90
+    transit is). A lane whose P90 actual transit still exceeds its promise
+    even after both caps are applied cannot be honestly fixed by padding —
+    it is flagged `watchlist_candidate=True` and routed to the Carrier
+    Partner Improvement / Volume-Shift Watchlist
+    (src/carrier_engine/carrier_optimization.py) instead of given a padding
+    number the lane can't actually hit.
     """
     closed = df[~df["is_open"]]
     delivered = closed[closed["is_delivered"]]
@@ -189,26 +202,50 @@ def compute_padding_recommendations(df: pd.DataFrame, lane_df: pd.DataFrame) -> 
             continue
 
         current_sla = TRANSIT_SLA_DAYS[lane_class]
+        ceiling = MAX_LANE_EDD_CEILING_DAYS[lane_class]
         transit_days = gd["transit_actual_days"].dropna()
         p90_actual = float(np.percentile(transit_days, PADDING_PERCENTILE))
         raw_gap = p90_actual - current_sla
         recommended_padding = int(np.ceil(max(0, raw_gap)))
-        manual_review_needed = recommended_padding > MAX_RECOMMENDED_PADDING_DAYS
+
+        sanity_capped = recommended_padding > MAX_RECOMMENDED_PADDING_DAYS
         padding = min(recommended_padding, MAX_RECOMMENDED_PADDING_DAYS)
         new_sla = current_sla + padding
+
+        # Hard per-lane ceiling: the customer-facing promise itself may never
+        # exceed a realistic, distance-proportionate cap, regardless of what
+        # the padding math above would otherwise allow.
+        ceiling_capped = new_sla > ceiling
+        if ceiling_capped:
+            padding = max(0, ceiling - current_sla)
+            new_sla = current_sla + padding
+        manual_review_needed = sanity_capped or ceiling_capped
+
+        # If, even after both caps, the lane's own P90 actual transit time
+        # still exceeds the promise we're willing to make — padding cannot
+        # honestly fix this lane. Route it to the carrier watchlist instead.
+        watchlist_candidate = p90_actual > new_sla
 
         current_meets_pct = round(float((transit_days <= current_sla).mean() * 100), 1)
         projected_meets_pct = round(float((transit_days <= new_sla).mean() * 100), 1)
 
-        if padding == 0:
+        if padding == 0 and not watchlist_candidate:
             rationale = (
                 f"P90 actual transit ({p90_actual:.1f}d) is already within the current "
                 f"{current_sla}-day SLA — this lane's EDD gap is not explained by transit time. "
                 f"Investigate NDR/RTO drivers instead of padding the promise (see lane_scorecard.csv)."
             )
+        elif watchlist_candidate:
+            rationale = (
+                f"P90 actual transit is {p90_actual:.1f}d — even at the maximum honest promise for a "
+                f"{lane_class} lane ({ceiling}d ceiling), this lane cannot reliably hit its EDD. "
+                f"Padding further would exceed the realistic per-lane ceiling and hurt customer "
+                f"experience with an erratically long promise. Routed to the Carrier Partner "
+                f"Improvement / Volume-Shift Watchlist instead — see carrier_partner_watchlist.csv."
+            )
         else:
-            note = " (capped at the sanity limit — raw gap is larger; flagging for manual ops review)" \
-                if manual_review_needed else ""
+            note = " (capped at the per-lane realistic ceiling)" if ceiling_capped else \
+                (" (capped at the sanity limit)" if sanity_capped else "")
             rationale = (
                 f"P90 actual transit is {p90_actual:.1f}d vs a {current_sla}-day SLA "
                 f"({raw_gap:.1f}d gap). Adding {padding} day(s) of padding{note} would have let "
@@ -222,9 +259,11 @@ def compute_padding_recommendations(df: pd.DataFrame, lane_df: pd.DataFrame) -> 
             "shipment_volume": int(lane_row["shipment_volume"]),
             "current_edd_adherence_pct": edd_pct,
             "current_transit_sla_days": current_sla,
+            "lane_ceiling_days": ceiling,
             "p90_actual_transit_days": round(p90_actual, 1),
             "recommended_padding_days": padding,
             "manual_review_needed": manual_review_needed,
+            "watchlist_candidate": watchlist_candidate,
             "new_transit_sla_days": new_sla,
             "current_pct_meeting_transit_sla": current_meets_pct,
             "projected_pct_meeting_transit_sla": projected_meets_pct,
@@ -235,8 +274,9 @@ def compute_padding_recommendations(df: pd.DataFrame, lane_df: pd.DataFrame) -> 
 
     out = pd.DataFrame(rows, columns=[
         "customer_city", "lane_class", "shipment_volume", "current_edd_adherence_pct",
-        "current_transit_sla_days", "p90_actual_transit_days", "recommended_padding_days",
-        "manual_review_needed", "new_transit_sla_days", "current_pct_meeting_transit_sla",
+        "current_transit_sla_days", "lane_ceiling_days", "p90_actual_transit_days",
+        "recommended_padding_days", "manual_review_needed", "watchlist_candidate",
+        "new_transit_sla_days", "current_pct_meeting_transit_sla",
         "projected_pct_meeting_transit_sla", "projected_lift_pp", "rationale", "data_confidence",
     ])
     if len(out):
