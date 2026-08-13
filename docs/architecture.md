@@ -29,13 +29,24 @@ data/raw/logistics_workbook_raw.xlsx
         │ alerts.csv,  │ edd_padding_        │ carrier_lane_scorecard.csv,│ notifications.csv│ queue.csv
         │ lane_breach_ │ recommendations.csv │ carrier_mix_recommendations.csv│           │
         │ summary.csv  │                     │                              │           │
-        │              │                     │                              ▼           │
-        │              │                     │                    src/ndr_agent/        │
-        │              │                     │                    ndr_consolidated_report.py
-        │              │                     │                       -> ndr_consolidated_report.csv
-        │              │                     │                       -> ivr_call_sheet.csv
-        │              │                     │                       -> ndr_customer_outreach.csv
-        │              │                     │                       -> ndr_care_team_digest.txt
+        │              │ watchlist_candidate │ (uses lane_scorecard +     │           │
+        │              │ feeds carrier_      │  padding recs to flag     │           │
+        │              │ optimization.py ────┤  lanes for the watchlist) │           │
+        │              │                     ▼                              ▼           │
+        │              │           carrier_partner_watchlist.csv  src/ndr_agent/        │
+        │              │           (mock "improve or shift        ndr_consolidated_report.py
+        │              │            volume" carrier notice)          -> ndr_consolidated_report.csv
+        │              │                                             -> ivr_call_sheet.csv
+        │              │                                             -> ndr_customer_outreach.csv
+        │              │                                             -> ndr_care_team_digest.txt
+        │              │                                                    │
+        │              │                                                    ▼
+        │              │                                          src/ndr_agent/
+        │              │                                          ndr_pending_response_export.py
+        │              │                                             -> ndr_channel_routing.csv
+        │              │                                             -> ndr_pending_response_outreach.xlsx
+        │              │                                             (per-channel: IVR/WhatsApp/
+        │              │                                              Manual Call/Email pending list)
         └──────────────┴──────────────────┴──────────────────┴───────────────────┘
                                 │
                                 ▼
@@ -47,7 +58,7 @@ data/raw/logistics_workbook_raw.xlsx
                        -> outputs/root_cause_analysis.md
                                 │
                  src/models/intervention_simulator.py
-                       -> outputs/intervention_simulation.csv   (85% -> 94% pathway)
+                       -> outputs/intervention_simulation.csv   (85% -> 95% pathway / funnel)
                                 │
                  src/decision_engine/dashboard_export.py
                        -> dashboard/dashboard_data.json
@@ -64,32 +75,51 @@ CSV exists, which is how the automated tests exercise individual modules.
 
 ## Primary-objective agents (added on top of the base pipeline)
 
-The dashboard's primary, above-the-fold objective is answering three
-operational questions directly, rather than leaving a Head of Logistics to
-infer them from charts:
+The dashboard's primary, above-the-fold objective is answering operational
+questions directly, rather than leaving a Head of Logistics to infer them
+from charts:
 
 - **`src/alerts_agent/edd_breach_alerts.py`** — filters the EDD Risk Agent's
   predictions down to shipments still IN TRANSIT that are High/Medium risk
   and close to (or past) their promised EDD, ranks them P1/P2/P3 by urgency,
-  and generates a mock customer-care update + push notification for each
-  one. It also rolls this up into a lane-level `lane_breach_summary.csv` —
-  "which lanes are about to breach EDD right now" is a first-class output,
+  and generates a mock Customer Care Team update + push notification for
+  each one. It also rolls this up into a lane-level `lane_breach_summary.csv`
+  — "which lanes are about to breach EDD right now" is a first-class output,
   not something you have to derive from a shipment list.
 - **`src/lane_engine/lane_intelligence.py::compute_padding_recommendations()`**
   — for every lane whose EDD adherence is below target, checks whether the
   gap is actually explained by transit time (P90 actual transit vs. the
   lane's SLA target). If it is, it recommends a specific number of padding
-  days and backtests the recommendation (SIMULATED) against historical
-  deliveries. If the gap is NOT transit-time-driven, it explicitly
-  recommends zero padding and points at NDR/RTO as the real driver — the
-  agent will not silently inflate an SLA to make a metric look better.
+  days (hard-capped both at a sanity limit and at a realistic per-lane EDD
+  ceiling — the promise can never be erratically long) and backtests the
+  recommendation (SIMULATED) against historical deliveries. If the gap is
+  NOT transit-time-driven, it explicitly recommends zero padding and points
+  at NDR/RTO as the real driver — the agent will not silently inflate an SLA
+  to make a metric look better. Lanes that can't be honestly fixed even at
+  the maximum padding are flagged `watchlist_candidate=True` and handed to
+  the carrier watchlist agent below.
+- **`src/carrier_engine/carrier_optimization.py::compute_carrier_watchlist()`**
+  — the Carrier Partner Improvement / Volume-Shift Watchlist. Flags lanes
+  where padding alone can't honestly close the EDD gap, or that are
+  chronically underperforming per the lane scorecard, matches each to its
+  dominant carrier, and generates a mock "improve within N days or we shift
+  volume" outbound notice — built entirely from already-computed lane and
+  padding outputs, no new model.
 - **`src/ndr_agent/ndr_consolidated_report.py`** — for every shipment with
   an unresolved failed-delivery (NDR) event, i.e. a delivery that could not
   be completed, this produces a manager-level consolidated report, a mock
-  digest email to the customer-care team, a PII-safe IVR call sheet for an
-  outbound-calling team, and mock customer-facing push/email outreach — all
-  asking for the same three things: a landmark, an address confirmation, or
-  an alternate phone number.
+  digest email to the Customer Care Team, a PII-safe IVR call sheet for an
+  outbound-calling team, and mock customer-facing push/email/WhatsApp
+  outreach — all asking for the same three things: a landmark, an address
+  confirmation, or an alternate phone number.
+- **`src/ndr_agent/ndr_recovery.py::assign_ndr_channel()`** — routes each
+  open NDR case to exactly one primary outreach channel (IVR / Manual Agent
+  Call / Email), gated by severity/attempt-count/case-age so the expensive
+  manual-call channel isn't blanket-applied, plus a parallel WhatsApp flag
+  for reasons needing customer action. `src/ndr_agent/ndr_pending_response_export.py`
+  turns this into a per-channel Excel workbook of customers still pending a
+  response — the attachment for the outreach email drafted to the
+  responsible team.
 
 ## Why this shape
 

@@ -7,7 +7,7 @@ Every field that flows through the pipeline, classified as:
 - **SYNTHETIC** — does not exist in the source data at all. Generated from an industry-informed, documented rule (never randomly). Full rationale for every SYNTHETIC field is in [`data_assumptions.md`](data_assumptions.md).
 - **AI_PREDICTED** — output of a trained ML model (`src/models/edd_risk_model.py`). Only ever applies to future/uncertain outcomes, never restates a known ACTUAL outcome.
 - **SIMULATED** — a forward-looking scenario computed from ACTUAL/DERIVED history but not a realized outcome (e.g. "if this lane's SLA were padded by N days, what fraction of past deliveries would have met it"). Never presented as a proven future result.
-- **MOCK** — generated message *content* (a push notification, email, or care-team ticket) that is never actually sent anywhere. Used only for the outbound-communication fields in the breach-alert and NDR-outreach agents; the underlying risk score or trigger driving the message may itself be ACTUAL/DERIVED/AI_PREDICTED — MOCK describes the delivery channel, not the logic.
+- **MOCK** — generated message *content* (a push notification, email, WhatsApp message, IVR script, or Customer Care Team ticket) that is never actually sent anywhere. Used only for the outbound-communication fields in the breach-alert and NDR-outreach agents; the underlying risk score or trigger driving the message may itself be ACTUAL/DERIVED/AI_PREDICTED — MOCK describes the delivery channel, not the logic.
 
 ## 1. Source workbook fields (as received)
 
@@ -88,7 +88,7 @@ Lane (`outputs/lane_scorecard.csv`), Carrier (`outputs/carrier_scorecard.csv`), 
 
 ## 6. Simulation fields (`outputs/intervention_simulation.csv`)
 
-`cumulative_edd_adherence` per stage is labeled `ACTUAL` (baseline only), `PROJECTED` (interventions 1–4, each bottom-up from an explicit, auditable formula), or `SIMULATED` (the final residual-gap-closing stage — an upper-bound scenario, not a bottom-up estimate). See `methodology.md` and `business_impact.md` for the full, honest breakdown of what is proven vs. assumed.
+`cumulative_edd_adherence` per stage is labeled `ACTUAL` (baseline only), `PROJECTED` (interventions 1–6, each bottom-up from an explicit, auditable formula — this now includes the lane-padding and carrier-watchlist-enforcement stages), or `SIMULATED` (the final residual-gap-closing stage — an upper-bound scenario, not a bottom-up estimate). See `methodology.md` and `business_impact.md` for the full, honest breakdown of what is proven vs. assumed.
 
 ## 7. EDD Breach Alert fields (`outputs/edd_breach_alerts.csv`, `outputs/lane_breach_summary.csv`)
 
@@ -104,17 +104,34 @@ Lane (`outputs/lane_scorecard.csv`), Carrier (`outputs/carrier_scorecard.csv`), 
 | Field | Confidence | Definition |
 |---|---|---|
 | `p90_actual_transit_days` | DERIVED | 90th percentile of `transit_actual_days` on that lane's delivered shipments. |
-| `recommended_padding_days`, `new_transit_sla_days` | DERIVED (formula) | See the transparent formula in `methodology.md` §5 — capped at `MAX_RECOMMENDED_PADDING_DAYS`. |
+| `lane_ceiling_days` | SYNTHETIC (policy) | `MAX_LANE_EDD_CEILING_DAYS[lane_class]` — the hard, realistic per-lane cap the padded promise may never cross (Local 2 / Metro 4 / Regional 3 / National 5 days). |
+| `recommended_padding_days`, `new_transit_sla_days` | DERIVED (formula) | See the transparent formula in `methodology.md` §5 — capped at both `MAX_RECOMMENDED_PADDING_DAYS` and `lane_ceiling_days`, whichever binds first. |
+| `manual_review_needed` | DERIVED (rule) | True when either cap above was hit, i.e. the raw transit-time gap was larger than what an honest promise can cover. |
+| `watchlist_candidate` | DERIVED (rule) | True when the lane's P90 actual transit time still exceeds `new_transit_sla_days` even after capped padding — padding can't fix this lane; it feeds the Carrier Partner Watchlist (§8b). |
 | `current_pct_meeting_transit_sla`, `projected_pct_meeting_transit_sla`, `projected_lift_pp` | SIMULATED | Backtest of the current vs. padded SLA against historical transit-time distribution — not a promise of future results. |
-| `rationale` | DERIVED (generated text) | Explains the recommendation, or explicitly states why 0 padding is recommended (EDD gap is NDR/RTO-driven, not transit-time-driven). |
+| `rationale` | DERIVED (generated text) | Explains the recommendation, or explicitly states why 0 padding is recommended (EDD gap is NDR/RTO-driven, not transit-time-driven) or why the lane was routed to the watchlist instead. |
 
-## 9. NDR Consolidation / IVR / Outreach fields (`outputs/ndr_consolidated_report.csv`, `outputs/ivr_call_sheet.csv`, `outputs/ndr_customer_outreach.csv`, `outputs/ndr_care_team_digest.txt`)
+## 8b. Carrier Partner Watchlist fields (`outputs/carrier_partner_watchlist.csv`)
 
 | Field | Confidence | Definition |
 |---|---|---|
-| `open_count`, `pct_of_open_queue`, `avg_reattempt_success_probability` (consolidated report) | DERIVED | Aggregation of the NDR Recovery Agent's queue (§2 masking already applied upstream) by reason and by lane. |
-| `info_needed`, `call_script` (IVR sheet) | DERIVED (rule) | Mapped from `ndr_reason` — what an outbound caller should ask for (landmark / address confirmation / alternate phone number). |
+| `edd_gap_to_target_pp` | DERIVED | `EDD_TARGET*100 - edd_adherence_pct` for this lane, from the lane scorecard. |
+| `flag_reasons` | DERIVED (rule) | `TRANSIT_CEILING_BREACH` (from §8's `watchlist_candidate`), `CHRONIC_UNDERPERFORMANCE` (lane status is "Intervention Required"/"Deteriorating" with volume/gap above threshold), or both. |
+| `primary_carrier`, `primary_carrier_share_pct`, `primary_carrier_edd_on_lane_pct` | DERIVED (carrier_label=SYNTHETIC; outcomes=ACTUAL) | The carrier with the largest shipment share on this exact `(customer_city, lane_class)`, and its own EDD adherence there. |
+| `notice_deadline` | SYNTHETIC (policy) | `SNAPSHOT_DATE + WATCHLIST_IMPROVEMENT_WINDOW_DAYS` (14 days). |
+| `mock_carrier_notice` | MOCK | Generated outbound "improve or we shift volume" notice text; never actually sent to a carrier. |
+
+## 9. NDR Consolidation / IVR / Outreach / Channel Routing fields (`outputs/ndr_consolidated_report.csv`, `outputs/ivr_call_sheet.csv`, `outputs/ndr_customer_outreach.csv`, `outputs/ndr_care_team_digest.txt`, `outputs/ndr_channel_routing.csv`, `outputs/ndr_pending_response_outreach.xlsx`)
+
+| Field | Confidence | Definition |
+|---|---|---|
+| `open_count`, `pct_of_open_queue`, `avg_reattempt_success_probability` (consolidated report) | DERIVED | Aggregation of the NDR Recovery Agent's queue (§2 masking already applied upstream) by reason, by lane, and by `recommended_channel`. |
+| `recommended_channel` | DERIVED (deterministic rule cascade) | One of `IVR` / `Manual Agent Call` / `Email`, assigned by `assign_ndr_channel()` per `ndr_reason`, `attempt_number`, COD/amount, and case age — see `methodology.md` §7. Not ML, not random; fully reproducible. |
+| `also_whatsapp` | DERIVED (rule) | True when the NDR reason requires the customer to take an action (confirm slot, share location pin, verify address, confirm COD readiness) — WhatsApp runs in parallel with `recommended_channel`, never as a replacement. |
+| `channel_rationale` | DERIVED (generated text) | Plain-English reason the shipment got its assigned channel. |
+| `info_needed`, `call_script` (IVR sheet) | DERIVED (rule) | Mapped from `ndr_reason` — what an outbound caller should ask for (landmark / address confirmation / alternate phone number). IVR sheet now includes both `IVR`- and `Manual Agent Call`-routed shipments (i.e. every voice-channel case). |
 | `contact_lookup_key` | DERIVED | `shipment_id` (itself a hash — see §2). A real deployment resolves the actual phone number/address from a secure CRM using this key **at call/send time**; it is never stored in this analytics output. |
-| `push_notification_title/body`, `email_subject/body` (outreach + care-team digest) | MOCK | Generated message content; no real push notification or email is ever sent. |
+| `push_notification_title/body`, `email_subject/body`, `whatsapp_message` (outreach + Customer Care Team digest) | MOCK | Generated message content; no real push notification, email, WhatsApp message, or call is ever sent. |
+| `ndr_pending_response_outreach.xlsx` sheets | Same confidence as the source row (ACTUAL shipment fields + DERIVED routing) | One sheet per channel, listing only shipments still open with an unresolved NDR event on that channel — see the workbook's own "Read Me" sheet for why this equals "pending a response" with no extra modeling needed. |
 
 No field in §7–§9 contains a real customer name, phone number, or address at any point — see the privacy note in `src/ndr_agent/ndr_consolidated_report.py` and §2 above.

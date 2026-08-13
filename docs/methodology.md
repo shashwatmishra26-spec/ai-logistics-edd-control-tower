@@ -146,17 +146,32 @@ not the lane scorecard's cached volume label.
 p90_actual = 90th percentile of transit_actual_days for this lane's
              delivered shipments
 raw_gap    = p90_actual - current_transit_sla_days
-padding    = ceil(max(0, raw_gap)), capped at MAX_RECOMMENDED_PADDING_DAYS (5)
-new_sla    = current_transit_sla_days + padding
+padding    = ceil(max(0, raw_gap)), capped at MAX_RECOMMENDED_PADDING_DAYS (2)
+new_sla    = current_transit_sla_days + padding, further capped at
+             MAX_LANE_EDD_CEILING_DAYS[lane_class] (Local 2 / Metro 4 /
+             Regional 3 / National 5) -- whichever cap binds first wins
 ```
 
 In words: pad enough that ~90% of what has actually happened on this lane
 historically would clear the new promise. If `raw_gap <= 0` — i.e. the P90
 transit time is already inside the current SLA — the recommended padding is
 **0**, and the rationale explicitly redirects to NDR/RTO as the real driver
-of the EDD gap instead. If the raw gap exceeds the sanity cap, the lane is
-still given the capped padding value but flagged `manual_review_needed`
-rather than silently truncated.
+of the EDD gap instead.
+
+**Two hard caps, added 2026-08 after a leadership review flagged the
+original targets as unrealistic ("looks very fake").** `TRANSIT_SLA_DAYS` is
+now a distance-proportionate *default* target (deliberately tighter than the
+ceiling, so there's room to pad honestly), and `MAX_LANE_EDD_CEILING_DAYS`
+is the realistic, customer-experience-driven *hard ceiling* the padded
+promise may never cross, no matter how large the raw gap is
+(`MAX_RECOMMENDED_PADDING_DAYS` was also lowered from 5 to 2 for the same
+reason — "no padding should be erratically high"). If the raw gap exceeds
+either cap, the lane is given the capped padding value and flagged
+`manual_review_needed`. If, even at the maximum honest promise, the lane's
+own P90 actual transit time *still* exceeds it (`watchlist_candidate=True`),
+padding cannot fix this lane — it is routed to the Carrier Partner
+Improvement / Volume-Shift Watchlist (§6b) instead of being given a padding
+number it can't actually hit.
 
 **Backtest (SIMULATED, not a promise of future results):** for every
 recommended padding value, the agent recomputes what percentage of that
@@ -167,11 +182,41 @@ vs. the new, padded SLA (`current_pct_meeting_transit_sla` /
 labeled SIMULATED because a padded promise changing customer/ops behavior
 going forward is not something a backtest can prove.
 
-**On the current dataset:** 6 of 10 evaluated lanes get real padding (3-4
-days), all transit-time-driven, with projected lift of 37-62pp. The 4
-National lanes are correctly recommended **zero** padding — their EDD gap
-traces to NDR/RTO, not transit time, so padding their SLA would not have
-fixed the underlying problem and the agent says so.
+**On the current dataset:** 9 of 10 evaluated lanes get real padding
+(capped at +1 day each, per the caps above), with projected lift of
+6.5-18.3pp. 8 of those 9 are *also* flagged for the carrier watchlist,
+because their P90 actual transit still exceeds even the maximum honest
+promise. 1 lane (West Delhi/National) is correctly recommended **zero**
+padding — its EDD gap traces to NDR/RTO, not transit time, so padding its
+SLA would not have fixed the underlying problem and the agent says so.
+
+## 6b. Carrier Partner Improvement / Volume-Shift Watchlist (primary objective)
+
+A lane lands on this watchlist for either (or both) of two independently
+computed reasons, each traceable to an existing agent's output — no new
+modeling:
+
+1. **`TRANSIT_CEILING_BREACH`** — from §5 above: the lane's P90 actual
+   transit time still exceeds its EDD promise even after the padding
+   recommender applies the maximum honest padding within both caps.
+2. **`CHRONIC_UNDERPERFORMANCE`** — the lane scorecard (§4) independently
+   flags the lane "Intervention Required" or "Deteriorating", with real
+   volume (`>= WATCHLIST_MIN_VOLUME`, 20) and a real gap to the EDD target
+   (`>= WATCHLIST_MIN_EDD_GAP_PP`, 5.0pp).
+
+Each watchlisted lane is matched to its **dominant carrier** — the carrier
+with the largest shipment share on that exact `(customer_city, lane_class)`
+combination — and a mock outbound notice is generated: current EDD%, the gap
+to target, the reason(s), and an explicit deadline
+(`WATCHLIST_IMPROVEMENT_WINDOW_DAYS`, 14 days) to show a documented
+improvement plan, or volume moves to an alternate carrier. This is the
+direct implementation of "highlight and be ready to notify carrier partners:
+improve the lane or we shift the volume" — generated entirely from
+already-computed lane and padding outputs, not a separate model.
+
+**On the current dataset:** 15 lanes (875 shipments/period) are flagged — 8
+for `TRANSIT_CEILING_BREACH`, 10 for `CHRONIC_UNDERPERFORMANCE` (some both).
+See `outputs/carrier_partner_watchlist.csv`.
 
 ## 6. Carrier Optimization — statistical rigor
 
@@ -210,6 +255,41 @@ few historical examples). This is intentionally simpler than a full ML
 model — an ops team can audit "why does this reason get priority X" by
 looking at one groupby table, not a model's internals.
 
+**NDR outreach channel routing** (`assign_ndr_channel()`, new 2026-08) is a
+deterministic, priority-ordered rule cascade — not ML, not random — deciding
+which single channel handles each open NDR case:
+
+1. **Manual Agent Call** (₹15-25/call, deliberately the expensive channel) —
+   gated by severity, not blanket-applied: 2nd/3rd+ delivery attempt
+   (`NDR_MANUAL_CALL_MIN_ATTEMPT`), a high-value COD-payment dispute
+   (`is_cod` and reason is "COD payment declined" and
+   `package_amount >= NDR_MANUAL_CALL_HIGH_VALUE_INR`), a reason already in
+   `HIGH_RISK_NDR_REASONS`, or a case aged past
+   `NDR_MANUAL_CALL_AGE_HOURS` (36h) since `first_attempt_date`.
+2. **Email** — backup/documentation channel, used specifically when the
+   reason is "Phone not reachable"; this is the paper trail a later dispute
+   would need.
+3. **IVR** (automated call) — the default first-touch channel for
+   everything else: near-zero cost, used for the bulk of Day-1 volume on
+   simple, low-complexity reasons.
+
+**WhatsApp runs in parallel, never as a replacement** (`also_whatsapp`):
+whenever the reason requires the customer to actively do something —
+confirm a slot, share a location pin, verify an address, confirm COD
+readiness (`NDR_WHATSAPP_ACTION_REASONS`) — a WhatsApp message is sent
+alongside whichever channel is primary. Every shipment gets exactly ONE
+primary channel, which is what prevents the same customer being called AND
+texted AND emailed for one open case — WhatsApp is the only sanctioned
+add-on.
+
+**On the current dataset:** of 62 open NDR shipments, 27 route to IVR, 32 to
+Manual Agent Call (mostly repeat failures and aged cases — this dataset
+spans ~2 months, so several open cases are already well past the 36h aging
+threshold), 3 to Email; 37 of the 62 also get a parallel WhatsApp. See
+`outputs/customer_care_notifications.csv` (per-shipment) and
+`outputs/ndr_channel_routing.csv` / `outputs/ndr_pending_response_outreach.xlsx`
+(the per-channel "still pending a response" export).
+
 ## 8. NDR Consolidated Report, IVR Call Sheet &amp; Outreach (primary objective)
 
 For every shipment where **delivery could not be completed** (an open NDR
@@ -220,7 +300,7 @@ NDR Recovery Agent's per-shipment queue (§7):
   queue broken down two ways — by `ndr_reason` and by `lane_class` — so a
   manager can see where the problem is concentrated from one table instead
   of scanning the raw queue.
-- **Care-team digest** (`ndr_care_team_digest.txt`): one mock email
+- **Customer Care Team digest** (`ndr_care_team_digest.txt`): one mock email
   summarizing the whole queue (counts, top reasons, top lanes, links to the
   detailed CSVs) — not one email per shipment.
 - **IVR call sheet** (`ivr_call_sheet.csv`): what an outbound-calling team
@@ -250,10 +330,11 @@ every delivered COD shipment (`config.REMITTANCE_DAYS_AFTER_DELIVERY`).
 Priority escalates to P1-Urgent when a remittance is both overdue and
 either high-value (>₹2,000) or more than 5 days late.
 
-## 10. Intervention Simulator — 85% → 94%, honestly
+## 10. Intervention Simulator — 85% → 95%, honestly
 
 Every stage of the simulation is bottom-up and independently recomputable
-from the CSVs the other agents already produced:
+from the CSVs the other agents already produced. This is also the dashboard's
+"Funnel to 95% EDD Adherence" chart:
 
 | Stage | Addressable population | Recovery assumption | Basis |
 |---|---|---|---|
@@ -261,13 +342,19 @@ from the CSVs the other agents already produced:
 | NDR customer-care intervention | P1/P2 NDR queue | 20% uplift | Industry-informed assumption: active outreach vs. passive reattempt |
 | Lane-specific intervention | Gap-to-90-health on "Intervention Required" lanes | 30% of gap closed | Conservative — hub/process fixes rarely close the full gap immediately |
 | Carrier reallocation | Lanes with a statistically significant carrier gap | Full measured pp gap, applied to lane volume | Directly from the two-proportion z-test result |
-| Early-risk escalation (residual) | Whatever remains to reach 94% | 100% of the remaining gap | **SIMULATED, not bottom-up** — labeled explicitly as an assumption that sustained systemic investment (real-time SLA-breach alerting, hub capacity planning) closes the residual gap. This is the honest part: interventions 1–4 only justify a bottom-up path to ~87%, not 94%. |
+| Lane EDD padding (right-sized promise, capped) | Lanes with a real (>0) padding recommendation (§5) | Each lane's own backtested `projected_lift_pp`, applied to lane volume | The same SIMULATED backtest already reported per lane in `edd_padding_recommendations.csv` — not a new assumption, just rolled into the funnel |
+| Carrier partner performance enforcement | Watchlisted lanes (§6b) | 25% of the EDD gap-to-target closed | Deliberately conservative — this is a negotiated external commitment from a carrier partner, not a system we control directly |
+| Early-risk escalation (residual) | Whatever remains to reach 95% | 100% of the remaining gap | **SIMULATED, not bottom-up** — labeled explicitly as an assumption that sustained systemic investment (real-time SLA-breach alerting, hub capacity planning) closes the residual gap. This is the honest part: interventions 1–6 justify a bottom-up path to ~94.5%, not the full 95%. |
 
 **This is intentional intellectual honesty, not a shortcoming.** A senior
 logistics leader should never trust a plan that claims every point of
 improvement is already proven — the simulator says explicitly: "here is
-what we can defend today (87%), and here is the size of the bet we'd still
-be making to reach 94% (7pp via sustained systemic investment)." See
+what we can defend today (94.5%), and here is the size of the bet we'd
+still be making to reach 95% (~0.5pp via sustained systemic investment)."
+The two newest stages (lane padding, carrier enforcement) are what moved the
+defensible number from 87% to 94.5% compared to the pre-2026-08 version of
+this simulation — both are direct, auditable rollups of agent outputs that
+already existed, not new assumptions bolted on to hit the target. See
 `business_impact.md` for how to read this number in a leadership
 conversation.
 

@@ -99,5 +99,32 @@ company.
 ## Fields explicitly NOT fabricated
 
 - **No delivery outcome (Delivered/RTO/Lost/EDD-met) is ever synthesized.** These are 100% ACTUAL, taken from `Delivery date`, `EDD`, and `Current Status` exactly as provided.
-- **No historical EDD adherence number is adjusted to make the 85%→94% story look better.** The baseline is computed once, directly from the data, and cross-checked against the workbook's own "Validation" sheet (`1546/1819 = 84.99%`) in `tests/test_model_and_decision_engine.py::test_baseline_matches_validation_sheet`.
+- **No historical EDD adherence number is adjusted to make the 85%→95% story look better.** The baseline is computed once, directly from the data, and cross-checked against the workbook's own "Validation" sheet (`1546/1819 = 84.99%`) in `tests/test_model_and_decision_engine.py::test_baseline_matches_validation_sheet`.
 - **Amount outliers (e.g. a package_amount of ₹3,60,002) are flagged, never corrected.** We do not guess what the "real" value should have been.
+
+### Why the raw `delivery_date` values were not rewritten to fit realistic SLA caps (2026-08)
+
+A 2026-08 leadership review correctly flagged the original per-lane SLA
+targets as unrealistic ("looks very fake") — actual transit time was nearly
+flat across Local/Metro/Regional/National (2.3-2.8 days average each),
+which doesn't reflect real-world distance differences. The fix that was
+**rejected**: rewriting historical `delivery_date` (and therefore
+`transit_actual_days`) to retroactively fit new, distance-proportionate
+caps. Diagnostics showed this would flip 93 of 291 "over-cap" delivered
+shipments from missed→met and zero the other way, moving the baseline from
+84.99% to ~90.1% — silently inflating the exact number this project exists
+to report honestly, and invalidating the "cross-checked against the
+Validation sheet, no historical data was adjusted" claim repeated
+throughout the docs.
+
+The fix that was applied instead: `TRANSIT_SLA_DAYS` (the default per-lane
+target) and `MAX_LANE_EDD_CEILING_DAYS` (the hard ceiling a padded promise
+may never cross) were both updated to realistic, distance-proportionate
+values — a legitimate, already-labeled SYNTHETIC/policy change, since these
+were always assumptions, never raw data. Combined with a lowered
+`MAX_RECOMMENDED_PADDING_DAYS`, this guarantees no customer-facing EDD
+promise is ever erratically long, without touching a single ACTUAL
+`delivery_date`. Lanes whose real transit time can't be honestly covered
+even at the maximum realistic promise are routed to the Carrier Partner
+Improvement / Volume-Shift Watchlist instead of being given a padding number
+they can't actually hit — see `methodology.md` §§5-6b.

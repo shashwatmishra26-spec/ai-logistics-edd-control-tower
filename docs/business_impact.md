@@ -8,7 +8,23 @@ every number here is reproducible from `outputs/*.csv`, never hand-edited.*
 
 **84.99% EDD adherence** (1,546 of 1,819 delivered shipments met their
 promised date), cross-checked against the workbook's own Validation sheet.
-Target: **94%** — a 9.0-point gap.
+Target: **95%** (raised from 94% in the 2026-08 leadership review) — a
+10.0-point gap.
+
+**A note on the target and the SLA that measures it.** The per-lane transit
+targets used to score this baseline were revised in 2026-08 to be
+distance-proportionate and realistic: Local ≤2 days, Metro 3-4 days,
+Regional ≤3 days, National ≤5 days (previously a flatter, unrealistic
+schedule). This is a documented SYNTHETIC/policy assumption
+(`config.py::TRANSIT_SLA_DAYS` / `MAX_LANE_EDD_CEILING_DAYS`), legitimately
+changeable without touching ACTUAL data. What was **not** done: rewriting
+historical `delivery_date` values to retroactively fit the new caps. That
+was evaluated and rejected — it would have moved the baseline from 84.99% to
+~90.1% (93 of 291 "over-cap" shipments flipping from missed→met, zero
+flipping the other way), which would silently inflate the very number this
+document exists to report honestly. Instead, the realistic caps are enforced
+going forward, as a hard ceiling on how far the padding recommender is
+allowed to loosen a promise (see "Lane EDD padding recommendations" below).
 
 Alongside the headline number: 454 shipments (18.4% of all) went to RTO, 15
 were Lost, 180 are still open/in-transit as of the snapshot, and 37.1% of
@@ -23,32 +39,56 @@ This is the dashboard's lead section (everything above is charts and
 scorecards feeding it). Three action queues, live from the current
 snapshot:
 
-**In-transit EDD breach alerts.** 176 open shipments are High/Medium risk
-and close to (or past) their promised EDD — 167 P1-Urgent (including 166
-already past their EDD while still moving) and 8 P2-High. Each one has a
-mock customer-care queue update and push notification already queued (see
-`outputs/edd_breach_alerts.csv`). At the lane level, 4 lanes are currently
-flagged "Breach Risk" (Bangalore/Metro, Mumbai/Local, Gurgaon/Metro,
+**In-transit EDD breach alerts.** 177 open shipments are High/Medium risk
+and close to (or past) their promised EDD — 168 P1-Urgent (including
+already-past-EDD shipments still moving) and 8 P2-High. Each one has a
+mock Customer Care Team queue update and push notification already queued
+(see `outputs/edd_breach_alerts.csv`). At the lane level, 4 lanes are
+currently flagged "Breach Risk" (Bangalore/Metro, Mumbai/Local, Gurgaon/Metro,
 Pune/Metro — see `outputs/lane_breach_summary.csv`).
 
-**Lane EDD padding recommendations.** Of 10 lanes evaluated, 6 get a direct,
-transparent padding recommendation (avg. +3.5 days, up to +62.6pp projected
-backtest lift on the best case) because their EDD gap is provably
-transit-time-driven (P90 actual transit time exceeds the current SLA). The
-other 4 (all National lanes: Jaipur, K.V.Rangareddy, Ghaziabad, West Delhi)
-get **zero** recommended padding — their gap traces to NDR/RTO instead, and
-padding their SLA would not fix that. See `outputs/edd_padding_recommendations.csv`
-and `methodology.md` §5 for the full formula.
+**Lane EDD padding recommendations.** Of 10 lanes evaluated, 9 get a direct,
+transparent padding recommendation (avg. +1.0 day — hard-capped, both at a
+sanity limit and at each lane's realistic per-lane EDD ceiling, so no
+promise is ever erratically long) because their EDD gap is at least partly
+transit-time-driven (P90 actual transit time exceeds the current SLA), up to
++18.3pp projected backtest lift on the best case (Mumbai/Local). 1 lane
+(West Delhi/National) gets **zero** recommended padding — its gap traces to
+NDR/RTO instead, and padding its SLA would not fix that. 8 of the 9 padded
+lanes are *also* flagged on the Carrier Partner Watchlist below, because
+even their capped, realistic promise still doesn't cover their P90 actual
+transit time — padding alone can't honestly fix them. See
+`outputs/edd_padding_recommendations.csv` and `methodology.md` §5 for the
+full formula.
+
+**Carrier Partner Improvement / Volume-Shift Watchlist.** 15 lanes
+(covering 875 shipments/period) are flagged for a carrier-partner
+improvement notice: 8 because their honest, capped EDD promise still can't
+cover their actual transit time (`TRANSIT_CEILING_BREACH`), 10 because they
+are chronically underperforming with a real gap to target
+(`CHRONIC_UNDERPERFORMANCE`, some lanes hit both). Each gets a mock
+"improve within 14 days or we shift volume" notice naming the lane's
+dominant carrier by shipment share. See `outputs/carrier_partner_watchlist.csv`.
 
 **Undelivered-shipment recovery (NDR).** 62 shipments currently have an
-unresolved failed-delivery event. All 62 are on the IVR call sheet
-(`outputs/ivr_call_sheet.csv`) with a PII-safe call script asking for a
-landmark, address confirmation, or alternate phone number depending on the
-reason; a mock digest email is queued for the customer-care team
-(`outputs/ndr_care_team_digest.txt`); and matching push/email outreach is
-queued for the customers themselves (`outputs/ndr_customer_outreach.csv`).
-No real name, phone, or address is used anywhere in this queue — see the
-privacy note in `src/ndr_agent/ndr_consolidated_report.py`.
+unresolved failed-delivery event, each routed to exactly one primary
+outreach channel (plus a parallel WhatsApp where the customer needs to take
+an action) so no one is contacted twice for the same case: 27 to IVR
+(first-touch, low-complexity), 32 to Manual Agent Call (repeat failures,
+high-value COD disputes, or aged past ~36h — the deliberately expensive
+channel), and 3 to Email (phone unreachable); 37 of the 62 also get a
+parallel WhatsApp. 59 of the 62 (everyone routed to IVR or Manual Agent
+Call) are on the outbound call sheet (`outputs/ivr_call_sheet.csv`) with a
+PII-safe call script asking for a landmark, address confirmation, or
+alternate phone number depending on the reason; a mock digest email is
+queued for the Customer Care Team (`outputs/ndr_care_team_digest.txt`); and
+matching push/email/WhatsApp outreach is queued for the customers themselves
+(`outputs/ndr_customer_outreach.csv`). A per-channel workbook listing only
+customers still pending a response —
+`outputs/ndr_pending_response_outreach.xlsx` — is the attachment for the
+outreach email drafted to the Customer Care Team lead. No real name, phone,
+or address is used anywhere in this queue — see the privacy note in
+`src/ndr_agent/ndr_consolidated_report.py`.
 
 ## Why EDD is being missed
 
@@ -125,7 +165,10 @@ evaluation numbers, and the honest finding that a secondary NDR-propensity
 model performs only marginally better than random (AUC≈0.57) given the
 features available — flagged rather than hidden.
 
-## Projected/simulated improvement toward 94%
+## Funnel: projected/simulated improvement toward 95%
+
+This is the dashboard's "Funnel to 95% EDD Adherence" chart — every factor,
+in order, from the ACTUAL baseline to the target:
 
 | Stage | Type | Cumulative EDD Adherence |
 |---|---|---|
@@ -134,19 +177,27 @@ features available — flagged rather than hidden.
 | + NDR customer-care intervention | PROJECTED | 86.3% |
 | + Lane-specific intervention | PROJECTED | 86.7% |
 | + Carrier reallocation | PROJECTED | 87.0% |
-| + Early-risk escalation (residual) | **SIMULATED** | 94.0% |
+| + Lane EDD padding (right-sized promise, capped) | PROJECTED | 92.9% |
+| + Carrier partner performance enforcement (watchlist) | PROJECTED | 94.5% |
+| + Early-risk escalation (residual) | **SIMULATED** | 95.0% |
 
-**Read this honestly:** the four bottom-up, individually-justified
-interventions get the network from 85.0% to **87.0%** — a defensible,
-auditable +2.0pp. The remaining **7.0pp to reach 94%** is explicitly labeled
-SIMULATED, not PROJECTED — it is the size of the bet a leadership team would
-still be making on sustained systemic investment (real-time SLA-breach
-alerting at the pickup stage, hub capacity planning, and the compounding
-effect of the other four interventions running continuously over multiple
-quarters rather than as a one-time snapshot). Presenting this gap
-transparently — rather than papering over it with a bigger assumed recovery
-rate on interventions 1–4 — is the more credible, and more useful, story
-for a leadership review.
+**Read this honestly:** six bottom-up, individually-justified interventions
+get the network from 85.0% to **94.5%** — a defensible, auditable +9.5pp,
+the large majority of it from two new stages: realistic, hard-capped lane
+padding (+6.2pp — the same backtested `projected_lift_pp` already reported
+per lane in `edd_padding_recommendations.csv`, just rolled into the funnel)
+and carrier-partner enforcement on the watchlist (+1.6pp, conservatively
+assuming only 25% of the gap on watchlisted lanes is recovered, since this
+depends on an external commitment, not a system we control directly). The
+remaining **~0.5pp to reach 95%** is explicitly labeled SIMULATED, not
+PROJECTED — the size of the bet a leadership team would still be making on
+sustained systemic investment (real-time SLA-breach alerting at the pickup
+stage, hub capacity planning, and the compounding effect of the other six
+interventions running continuously over multiple quarters rather than as a
+one-time snapshot). Presenting this gap transparently — rather than papering
+over it with a bigger assumed recovery rate elsewhere — is the more
+credible, and more useful, story for a leadership review. Full formula per
+stage: `outputs/intervention_simulation.csv`.
 
 ## Limitations (state these upfront in any interview or leadership readout)
 
@@ -154,4 +205,5 @@ for a leadership review.
 - Carrier is synthetic; do not repeat the specific "Carrier D" number outside this repo as if it were a real finding.
 - NDR-propensity prediction is weak with available features; needs address-quality data to be trustworthy for proactive (pre-NDR) intervention.
 - Most individual lanes are below the reliable-sample-size threshold — 389 of 409 lane×class combinations are marked "Insufficient Sample."
-- The residual 7pp SIMULATED gap is an assumption, not a proof; a real rollout should track intervention 1–4 results for 4–8 weeks before committing to a 94% timeline.
+- The residual ~0.5pp SIMULATED gap is an assumption, not a proof; a real rollout should track interventions 1–6 (including the new lane-padding and carrier-watchlist stages) for 4–8 weeks before committing to a 95% timeline.
+- Carrier partner enforcement (the watchlist) depends on an external commitment from carrier partners — the 25% assumed recovery rate is deliberately conservative, but this is not a lever the control tower can pull by itself.
