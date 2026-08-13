@@ -1,7 +1,9 @@
 stage,label,shipments_recovered,cumulative_edd_adherence,formula
 Baseline (ACTUAL),ACTUAL,0,0.8499,1546 / 1819 delivered shipments met EDD (Validation sheet cross-checked)
-+ High-risk shipment intervention (proactive outreach/reattempt),PROJECTED,18,0.8598,51 open shipments flagged High risk x 35% assumed real-world recovery rate (conservative discount on model precision) = 18
++ High-risk shipment intervention (proactive outreach/reattempt),PROJECTED,18,0.8598,52 open shipments flagged High risk x 35% assumed real-world recovery rate (conservative discount on model precision) = 18
 + NDR customer-care intervention,PROJECTED,6,0.8631,28 P1/P2 NDR shipments x 20% assumed conversion uplift from active outreach vs passive reattempt = 6
 + Lane-specific intervention (hub/process fixes on worst lanes),PROJECTED,7,0.867,Sum over 5 'Intervention Required' lanes of (gap-to-90-health x volume) x 30% assumed recovery = 7
 + Carrier reallocation on statistically-significant lanes,PROJECTED,6,0.8703,"1 lane(s) with significant, sustained carrier gap x expected pp impact applied to lane volume = 6"
-+ Early-risk escalation & continuous monitoring (residual gap to target),SIMULATED,127,0.9401,"Residual shipments needed to reach the 94% target after interventions 1-4, attributed to systemic early-warning escalation (pickup-SLA breach alerts, hub capacity planning) — SIMULATED, i.e. an upper-bound target-closing assumption, not a bottom-up estimate."
+"+ Lane EDD padding (right-sized promise, capped)",PROJECTED,107,0.9291,"9 lane(s) given a capped, realistic padding recommendation x each lane's own backtested projected_lift_pp x shipment_volume (see edd_padding_recommendations.csv) = 107"
++ Carrier partner performance enforcement (improve-or-shift-volume watchlist),PROJECTED,29,0.945,"15 watchlisted lane(s) x EDD gap-to-target x volume x 25% assumed recovery from carrier improvement commitments (conservative — this is an external commitment, not a change we control directly) = 29"
++ Early-risk escalation & continuous monitoring (residual gap to target),SIMULATED,9,0.95,"Residual shipments needed to reach the 95% target after interventions 1-6, attributed to systemic early-warning escalation (pickup-SLA breach alerts, hub capacity planning) — SIMULATED, i.e. an upper-bound target-closing assumption, not a bottom-up estimate."

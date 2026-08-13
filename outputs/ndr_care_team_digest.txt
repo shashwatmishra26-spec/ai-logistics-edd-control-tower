@@ -14,7 +14,13 @@ Top lanes:
   - Metro: 9 shipments (14.5%)
   - Regional: 6 shipments (9.7%)
 
-Customer-facing push/email outreach has been queued separately — see outputs/ndr_customer_outreach.csv.
+Channel routing (each shipment gets exactly ONE primary channel, to avoid duplicate contact):
+  - Manual Agent Call: 32 shipments
+  - IVR: 27 shipments
+  - Email: 3 shipments
+  - + 37 of these also get a parallel WhatsApp (action-needed reasons)
+
+Customer-facing push/email/WhatsApp outreach has been queued separately — see outputs/ndr_customer_outreach.csv. A per-channel breakdown of customers still pending a response is attached to the outreach email (see outputs/ndr_pending_response_outreach.xlsx).
 
 Regards,
 AI Logistics Control Tower

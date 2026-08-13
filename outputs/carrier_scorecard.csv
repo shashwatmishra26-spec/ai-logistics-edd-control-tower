@@ -1,5 +1,5 @@
 carrier,shipment_volume,edd_adherence_pct,avg_transit_days,ndr_pct,rto_pct,lost_pct,carrier_sla_breach_pct,volume_share_pct,data_confidence,concentration_flag
-Carrier A,513,85.8,2.65,38.2,22.6,0.8,23.2,22.4,carrier_label=SYNTHETIC; outcomes=ACTUAL,False
-Carrier B,553,85.5,2.69,39.1,20.8,0.7,21.2,24.2,carrier_label=SYNTHETIC; outcomes=ACTUAL,False
-Carrier C,571,85.4,2.66,36.8,16.8,0.2,18.4,25.0,carrier_label=SYNTHETIC; outcomes=ACTUAL,False
-Carrier D,651,83.6,2.7,35.6,19.5,0.9,11.1,28.5,carrier_label=SYNTHETIC; outcomes=ACTUAL,False
+Carrier A,513,85.8,2.65,38.2,22.6,0.8,25.5,22.4,carrier_label=SYNTHETIC; outcomes=ACTUAL,False
+Carrier B,553,85.5,2.69,39.1,20.8,0.7,23.1,24.2,carrier_label=SYNTHETIC; outcomes=ACTUAL,False
+Carrier C,571,85.4,2.66,36.8,16.8,0.2,21.9,25.0,carrier_label=SYNTHETIC; outcomes=ACTUAL,False
+Carrier D,651,83.6,2.7,35.6,19.5,0.9,18.1,28.5,carrier_label=SYNTHETIC; outcomes=ACTUAL,False

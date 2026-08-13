@@ -9,3 +9,6 @@ reason,Phone not reachable,11,17.7,0.774,0,5
 reason,Address issue,9,14.5,0.594,0,7
 reason,Delivery postponed by customer,9,14.5,1.0,0,0
 reason,Customer not available,5,8.1,0.653,0,4
+recommended_channel,Manual Agent Call,32,51.6,0.858,0,9
+recommended_channel,IVR,27,43.5,0.702,0,16
+recommended_channel,Email,3,4.8,0.503,0,3

@@ -9,18 +9,18 @@
       "RTO"
     ],
     "accuracy": 0.8144,
-    "roc_auc_edd_miss_binary": 0.8284,
+    "roc_auc_edd_miss_binary": 0.8262,
     "classification_report": {
       "Delivered Late": {
-        "precision": 0.16666666666666666,
-        "recall": 0.12727272727272726,
-        "f1-score": 0.14432989690721648,
+        "precision": 0.18181818181818182,
+        "recall": 0.14545454545454545,
+        "f1-score": 0.16161616161616163,
         "support": 55.0
       },
       "Delivered On-Time": {
-        "precision": 0.845679012345679,
-        "recall": 0.8867313915857605,
-        "f1-score": 0.8657187993680885,
+        "precision": 0.8478260869565217,
+        "recall": 0.883495145631068,
+        "f1-score": 0.8652931854199684,
         "support": 309.0
       },
       "Lost": {
@@ -37,28 +37,28 @@
       },
       "accuracy": 0.8144104803493449,
       "macro avg": {
-        "precision": 0.7530864197530864,
-        "recall": 0.5868343630479553,
-        "f1-score": 0.6275121740688263,
+        "precision": 0.7574110671936759,
+        "recall": 0.5905707561047366,
+        "f1-score": 0.6317273367590325,
         "support": 458.0
       },
       "weighted avg": {
-        "precision": 0.7958110949377325,
+        "precision": 0.7990791722042908,
         "recall": 0.8144104803493449,
-        "f1-score": 0.8033739155778084,
+        "f1-score": 0.8051626270385571,
         "support": 458.0
       }
     },
     "confusion_matrix": [
       [
-        7,
-        48,
+        8,
+        47,
         0,
         0
       ],
       [
-        35,
-        274,
+        36,
+        273,
         0,
         0
       ],
@@ -76,20 +76,20 @@
       ]
     ],
     "feature_importance": {
-      "attempt_number": 0.4787,
-      "package_amount": 0.0998,
-      "distance_km": 0.0918,
-      "carrier": 0.063,
-      "shipment_ageing_days": 0.0618,
-      "payment_mode": 0.0527,
-      "order_dow": 0.0522,
-      "order_to_pickup_days": 0.0224,
+      "attempt_number": 0.4828,
+      "package_amount": 0.0958,
+      "distance_km": 0.0926,
+      "shipment_ageing_days": 0.0642,
+      "carrier": 0.0613,
+      "order_dow": 0.0527,
+      "payment_mode": 0.0515,
+      "order_to_pickup_days": 0.0226,
       "lane_class": 0.0186,
-      "pickup_sla_breach": 0.0143,
-      "transit_sla_days": 0.0126,
-      "lane_hist_edd_rate": 0.0125,
-      "delivery_sla_days": 0.011,
-      "is_weekend_order": 0.0085
+      "pickup_sla_breach": 0.0137,
+      "lane_hist_edd_rate": 0.0133,
+      "transit_sla_days": 0.0133,
+      "delivery_sla_days": 0.0094,
+      "is_weekend_order": 0.0081
     }
   },
   "ndr_model": {
