@@ -154,6 +154,18 @@
 
   <div class="kpi-row" id="primaryKpiRow"></div>
 
+  <div class="card" style="margin-bottom:16px;">
+    <h3>Funnel to 95% EDD Adherence</h3>
+    <p class="desc">Every factor that closes the gap from the ACTUAL 85.0% baseline to the 95% target, in order: each bar is the cumulative EDD adherence after that intervention is added, so the chart reads left-to-right as the funnel narrowing toward the goal. Bottom-up, auditable interventions (PROJECTED, blue) get the network to ~94.5%; the last sliver to 95% is an explicitly-labeled SIMULATED assumption, not a proven result. Full formula per stage: <code>outputs/intervention_simulation.csv</code>.</p>
+    <div id="chartEddFunnel"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>Carrier Partner Improvement / Volume-Shift Watchlist</h3>
+    <p class="desc">Lanes we are ready to notify: either their honest EDD promise (even at the maximum realistic per-lane ceiling) still can't cover their actual transit time, or they are chronically underperforming with a real gap to target. Each gets a mock "improve or we shift volume" notice. Full list: <code>outputs/carrier_partner_watchlist.csv</code>.</p>
+    <div id="carrierWatchlistTable"></div>
+  </div>
+
   <div class="grid-2">
     <div class="card">
       <h3>Lanes About to Breach EDD (In-Transit)</h3>
@@ -181,7 +193,7 @@
 
   <div class="section-divider" style="border-top:none; padding-top:0; margin-top:0;">
     <h2>Deliveries That Could Not Be Completed — NDR Consolidation &amp; Outreach</h2>
-    <p>For every shipment with an unresolved failed-delivery (NDR) event: a consolidated view, a mock care-team digest email, a PII-safe IVR call sheet, and mock customer push/email outreach — all asking for the same three things: a landmark, an address confirmation, or an alternate phone number. See the privacy note in <code>src/ndr_agent/ndr_consolidated_report.py</code> — no real name/phone/address is ever used.</p>
+    <p>For every shipment with an unresolved failed-delivery (NDR) event: a consolidated view, a mock Customer Care Team digest email, a PII-safe IVR call sheet, and mock customer push/email outreach routed by channel (IVR / WhatsApp / Manual Agent Call / Email) — all asking for the same three things: a landmark, an address confirmation, or an alternate phone number. See the privacy note in <code>src/ndr_agent/ndr_consolidated_report.py</code> — no real name/phone/address is ever used.</p>
   </div>
 
   <div class="grid-2">
@@ -191,7 +203,7 @@
       <div id="ndrReportTable"></div>
     </div>
     <div class="card">
-      <h3>Care Team Digest Email (MOCK)</h3>
+      <h3>Customer Care Team Digest Email (MOCK)</h3>
       <p class="desc">One digest email covering the whole queue, not one per shipment. No real email is sent.</p>
       <div id="careDigest" style="white-space:pre-wrap;font-size:11.5px;line-height:1.6;max-height:260px;overflow:auto;background:var(--page);border:1px solid var(--border);border-radius:8px;padding:10px 12px;"></div>
     </div>
@@ -347,6 +359,37 @@ const DATA = __DASHBOARD_DATA_JSON__;
     attachBarTooltips(containerId);
   }
 
+  // ---------- funnel chart: cumulative EDD adherence, stage by stage, converging on the target ----------
+  function funnelChart(containerId, stages, opts){
+    opts = opts || {};
+    const w = opts.width || 900, barH = opts.barH || 36, gap = opts.gap || 12;
+    const leftPad = opts.leftPad || 380, rightPad = 70, topPad = 10, botPad = 26;
+    const h = topPad + botPad + stages.length*(barH+gap);
+    const target = opts.target !== undefined ? opts.target : 100;
+    const innerW = w - leftPad - rightPad;
+    const scale = innerW / target;
+    const colorFor = (label) => label === 'ACTUAL' ? 'var(--series-1)'
+                     : (label === 'SIMULATED' ? 'var(--series-4)' : 'var(--series-3)');
+    let bars = '';
+    stages.forEach((s, i) => {
+      const y = topPad + i * (barH + gap);
+      const barW = Math.max(3, s.value * scale);
+      const x = leftPad;
+      const tip = `${s.stage}: ${s.value.toFixed(1)}% cumulative EDD adherence` +
+                  (s.delta ? ` (+${s.delta} shipments this stage)` : '') + ` — ${s.label}`;
+      bars += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="6" fill="${colorFor(s.label)}" opacity="0.92" data-tip="${tip.replace(/"/g,'&quot;')}"></rect>`;
+      bars += `<text x="${x-10}" y="${y+barH/2-3}" text-anchor="end" style="font-weight:600;fill:var(--text-primary)">${s.stage}</text>`;
+      bars += `<text x="${x-10}" y="${y+barH/2+12}" text-anchor="end" style="font-size:9.5px">${s.label}${s.delta?` · +${s.delta} shipments`:''}</text>`;
+      bars += `<text x="${x+barW+8}" y="${y+barH/2+4}" style="font-weight:700;fill:var(--text-primary)">${s.value.toFixed(1)}%</text>`;
+    });
+    const targetX = leftPad + target * scale;
+    bars += `<line x1="${targetX}" y1="0" x2="${targetX}" y2="${h-botPad+4}" stroke="var(--text-secondary)" stroke-dasharray="4,3"></line>`;
+    bars += `<text x="${targetX}" y="${h-6}" text-anchor="middle" style="font-weight:600">${target}% target</text>`;
+    const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${bars}</svg>`;
+    document.getElementById(containerId).innerHTML = svg;
+    attachBarTooltips(containerId);
+  }
+
   function lineChart(containerId, series, opts){
     opts = opts || {};
     const w = opts.width || 420, h = opts.height || 220, pad = {t:14,r:14,b:36,l:44};
@@ -480,13 +523,14 @@ const DATA = __DASHBOARD_DATA_JSON__;
     const ba = DATA.kpis.breach_alerts || {};
     const pr = DATA.kpis.padding_recommendations || {};
     const nq = DATA.kpis.ndr_queue || {};
+    const cw = DATA.kpis.carrier_watchlist || {};
     const tiles = [
       {label:'In-Transit At Risk of Breach', value: ba.in_transit_at_risk ?? '—', tag:'AI_PREDICTED', note: (ba.already_breached_in_transit ?? 0)+' already past EDD'},
       {label:'Lanes at Breach Risk', value: ba.lanes_breach_risk ?? '—', tag:'DERIVED'},
-      {label:'Breach Alerts P1 / P2', value: `${ba.p1_urgent ?? 0} / ${ba.p2_high ?? 0}`, tag:'MOCK', note:'care-team + push queued'},
-      {label:'Lanes Recommended for Padding', value: pr.lanes_recommended_for_padding ?? '—', tag:'SIMULATED', note: (pr.lanes_evaluated ?? 0)+' lanes evaluated'},
-      {label:'Avg. Recommended Padding', value: (pr.avg_recommended_padding_days ?? 0)+'d', tag:'SIMULATED'},
-      {label:'Open NDR (Undelivered)', value: nq.open_notifications ?? '—', tag:'ACTUAL', note: (nq.ivr_call_sheet_size ?? 0)+' on IVR call sheet'},
+      {label:'Breach Alerts P1 / P2', value: `${ba.p1_urgent ?? 0} / ${ba.p2_high ?? 0}`, tag:'MOCK', note:'Customer Care Team + push queued'},
+      {label:'Lanes Recommended for Padding', value: pr.lanes_recommended_for_padding ?? '—', tag:'SIMULATED', note: (pr.lanes_evaluated ?? 0)+' lanes evaluated, capped ceiling'},
+      {label:'Carrier Watchlist Lanes', value: cw.lanes_flagged ?? '—', tag:'MOCK', note: (cw.shipments_covered ?? 0)+' shipments/period covered'},
+      {label:'Open NDR (Undelivered)', value: nq.open_notifications ?? '—', tag:'ACTUAL', note: `IVR ${nq.channel_routing?.IVR ?? 0} · Call ${nq.channel_routing?.['Manual Agent Call'] ?? 0} · Email ${nq.channel_routing?.Email ?? 0}`},
     ];
     document.getElementById('primaryKpiRow').innerHTML = tiles.map(t=>`
       <div class="kpi">
@@ -520,7 +564,7 @@ const DATA = __DASHBOARD_DATA_JSON__;
 
   function renderBreachAlertsTable(){
     const rows = (DATA.breach_alerts||[]).slice(0,15);
-    document.getElementById('breachAlertsTable').innerHTML = `<table class="dt"><thead><tr><th>Priority</th><th>AWB</th><th>City / Lane</th><th>EDD</th><th>Days to EDD</th><th>Risk</th><th class="trunc">Care Team Update</th></tr></thead><tbody>${
+    document.getElementById('breachAlertsTable').innerHTML = `<table class="dt"><thead><tr><th>Priority</th><th>AWB</th><th>City / Lane</th><th>EDD</th><th>Days to EDD</th><th>Risk</th><th class="trunc">Customer Care Team Update</th></tr></thead><tbody>${
       rows.map(r=>`<tr><td>${priorityPill(r.alert_priority)}</td><td>${esc(r.awb)}</td><td>${esc(r.customer_city)} (${esc(r.lane_class)})</td><td>${esc(r.edd)}</td><td>${r.days_to_edd}</td><td>${esc(r.risk_tier)} (${r.edd_risk_score}%)</td><td class="trunc" title="${esc(r.care_team_update).replace(/"/g,'&quot;')}">${esc(r.care_team_update)}</td></tr>`).join('')
     }</tbody></table>`;
   }
@@ -550,8 +594,39 @@ const DATA = __DASHBOARD_DATA_JSON__;
     document.getElementById('careDigest').textContent = DATA.ndr_care_team_digest || '(no digest generated)';
   }
 
+  function renderEddFunnel(){
+    const stages = (DATA.simulation||[]).map(d => ({
+      stage: d.stage.replace(/^\+ /,''),
+      label: d.label,
+      value: Math.round(d.cumulative_edd_adherence*1000)/10,
+      delta: d.shipments_recovered,
+    }));
+    funnelChart('chartEddFunnel', stages, {target: Math.round(DATA.meta.edd_target*1000)/10, width: 900});
+  }
+
+  function watchlistReasonPill(reasons){
+    const r = (reasons||'');
+    const cls = r.includes('TRANSIT_CEILING_BREACH') && r.includes('CHRONIC_UNDERPERFORMANCE') ? 'p1'
+              : r.includes('TRANSIT_CEILING_BREACH') ? 'p2' : 'p3';
+    const label = r.split(', ').map(x=>x.replace(/_/g,' ')).join(' + ');
+    return `<span class="pill ${cls}">${esc(label)}</span>`;
+  }
+
+  function renderCarrierWatchlistTable(){
+    const rows = (DATA.carrier_watchlist||[]).slice().sort((a,b)=>b.edd_gap_to_target_pp-a.edd_gap_to_target_pp);
+    if(!rows.length){
+      document.getElementById('carrierWatchlistTable').innerHTML = '<p class="desc">No lanes currently meet the watchlist thresholds.</p>';
+      return;
+    }
+    document.getElementById('carrierWatchlistTable').innerHTML = `<table class="dt"><thead><tr><th>City</th><th>Lane</th><th>Carrier</th><th>EDD%</th><th>Gap to Target</th><th>Reason</th><th>Notice Deadline</th></tr></thead><tbody>${
+      rows.map(r=>`<tr><td>${esc(r.customer_city)}</td><td>${esc(r.lane_class)}</td><td>${esc(r.primary_carrier)}</td><td>${r.edd_adherence_pct}%</td><td>${r.edd_gap_to_target_pp}pp</td><td>${watchlistReasonPill(r.flag_reasons)}</td><td>${esc(r.notice_deadline)}</td></tr>`).join('')
+    }</tbody></table>`;
+  }
+
   function renderPrimaryObjective(){
     renderPrimaryKpis();
+    renderEddFunnel();
+    renderCarrierWatchlistTable();
     renderLaneBreachTable();
     renderPaddingTable();
     renderBreachAlertsTable();
