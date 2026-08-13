@@ -1,0 +1,21 @@
+shipment_id,awb,order_id,carrier,customer_city,lane_class,current_status,edd,attempt_number,has_ndr,ndr_reason
+ED50932ECB,AWB5306905862,110914960948,Carrier A,South West Delhi,National,RTO,2026-02-27,3,True,Customer not available
+E699569D0E,AWB6060828011,101914720014,Carrier B,Ghaziabad,National,Delivered,2026-02-27,1,False,Not Applicable
+0671BD7F2F,AWB5874252998,110614919637,Carrier C,Surat,National,Delivered,2026-02-27,1,False,Not Applicable
+833A26DBB4,AWB4760701835,110714930224,Carrier C,RANCHI,National,RTO,2026-02-27,3,True,Address issue
+A8C92E9C79,AWB6335221883,110114860709,Carrier D,Rupnagar,National,Out of delivery,2026-02-27,1,True,Address issue
+88AB530C2E,AWB4881031815,110414895932,Carrier D,Kamrup,National,RTO,2026-02-27,3,True,Customer cancelled order
+AB9CF034FF,AWB2981032726,101214614906,Carrier C,Thrissur,National,RTO,2026-02-27,3,True,Address issue
+F862CF3537,AWB9109452077,101314625257,Carrier B,Amravati,Regional,RTO,2026-02-27,3,True,Landmark missing
+366C44A89A,AWB0428376996,110614921804,Carrier A,Pune,Metro,Delivered,2026-02-27,1,False,Not Applicable
+8104D5AEB6,AWB1439646830,110914953167,Carrier B,Ghaziabad,National,Delivered,2026-02-27,1,False,Not Applicable
+E36765D880,AWB2795667086,101514666078,Carrier A,Gurgaon,Metro,RTO,2026-02-27,3,True,COD payment declined
+099B18EFB3,AWB8670272920,110814939455,Carrier A,K.V.Rangareddy,National,Delivered,2026-02-27,1,False,Not Applicable
+D25180CF29,AWB4469993240,110214865298,Carrier D,West Delhi,National,RTO,2026-02-27,3,True,Landmark missing
+EDDE361027,AWB7788594214,110414887801,Carrier D,Jorhat,National,Out of delivery,2026-02-27,1,True,Customer requested re-attempt
+218A2D4A1C,AWB6077045631,110514909045,Carrier D,Osmanabad,Regional,Delivered,2026-02-27,1,False,Not Applicable
+513C2631EC,AWB6678486236,110314881045,Carrier C,Jorhat,National,RTO,2026-02-27,3,True,Address issue
+5072FCB25E,AWB6330947881,102614798386,Carrier B,Krishna,National,RTO,2026-02-27,3,True,Landmark missing
+BB37531C4D,AWB7549259881,101814706084,Carrier B,Muzaffarpur,National,In-Transit,2026-02-27,0,True,Customer requested re-attempt
+CEC7BBF829,AWB5654230978,93014446581,Carrier D,Prakasam,National,Out of delivery,2026-02-27,2,True,Customer requested re-attempt
+41E17E0AEE,AWB4158789524,101514660025,Carrier D,Amravati,Regional,Delivered,2026-02-27,1,False,Not Applicable

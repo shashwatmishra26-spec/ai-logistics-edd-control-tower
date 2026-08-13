@@ -1,0 +1,5 @@
+carrier,shipment_volume,breached_shipments,breach_pct,edd_adherence_pct,data_confidence
+Carrier D,664,267,40.2,59.8,DERIVED (carrier label is SYNTHETIC; breach outcome is ACTUAL)
+Carrier A,532,206,38.7,61.3,DERIVED (carrier label is SYNTHETIC; breach outcome is ACTUAL)
+Carrier B,572,215,37.6,62.4,DERIVED (carrier label is SYNTHETIC; breach outcome is ACTUAL)
+Carrier C,581,200,34.4,65.6,DERIVED (carrier label is SYNTHETIC; breach outcome is ACTUAL)

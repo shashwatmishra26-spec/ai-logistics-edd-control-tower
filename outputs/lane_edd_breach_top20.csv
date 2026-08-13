@@ -1,0 +1,21 @@
+rank,customer_city,lane_class,shipment_volume,breached_shipments,breach_pct
+1,Bangalore,Metro,193,79,40.9
+2,Mumbai,Local,157,59,37.6
+3,Gurgaon,Metro,87,37,42.5
+4,Hyderabad,Metro,75,31,41.3
+5,Pune,Metro,75,24,32.0
+6,Ghaziabad,National,42,19,45.2
+7,Thane,Local,50,18,36.0
+8,Gautam Buddha Nagar,Metro,61,18,29.5
+9,West Delhi,National,33,16,48.5
+10,Jaipur,National,35,15,42.9
+11,Ahmedabad,Metro,29,14,48.3
+12,K.V.Rangareddy,National,37,13,35.1
+13,South Delhi,National,23,12,52.2
+14,South West Delhi,National,35,12,34.3
+15,East Delhi,National,21,10,47.6
+16,Faridabad,National,26,10,38.5
+17,Kanchipuram,National,19,9,47.4
+18,East Khasi Hills,National,14,8,57.1
+19,Kolkata,Metro,15,8,53.3
+20,Lucknow,National,21,8,38.1

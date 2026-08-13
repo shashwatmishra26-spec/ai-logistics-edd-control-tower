@@ -1,0 +1,9 @@
+shipment_id,awb,order_id,carrier,customer_city,lane_class,current_status,edd,attempt_number,has_ndr,ndr_reason
+B61DDB654E,AWB6558298501,110414897397,Carrier C,Lucknow,National,Order Packed,2026-02-28,0,False,Not Applicable
+C9C15589ED,AWB5024581424,110414895916,Carrier D,Kamrup,National,In-Transit,2026-02-28,0,False,Not Applicable
+5EC76A379D,AWB6789258310,110314880577,Carrier D,East Sikkim,National,Out of delivery,2026-02-28,1,True,Landmark missing
+690CDFDE55,AWB5509026798,102814809467,Carrier B,East Godavari,National,In-Transit,2026-02-28,0,False,Not Applicable
+A0A13DD8BE,AWB9508474079,102314770606,Carrier B,Adilabad,National,Pickup done,2026-02-28,0,False,Not Applicable
+5BB53FF57C,AWB0892192559,92914425968,Carrier C,Chennai,Metro,Pickup done,2026-02-28,0,False,Not Applicable
+ED231FFEEC,AWB5036772027,101914716056,Carrier D,Jaunpur,National,In-Transit,2026-02-28,0,False,Not Applicable
+32C5F97E05,AWB4892827446,101314627612,Carrier B,Nayagarh,National,In-Transit,2026-02-28,0,False,Not Applicable

@@ -1,0 +1,14 @@
+{
+  "as_of_date": "2026-02-28",
+  "yesterday_date": "2026-02-27",
+  "network_breach_pct_through_as_of": 37.8,
+  "network_shipments_in_scope": 2349,
+  "network_shipments_breached": 888,
+  "yesterday_edd_cohort_size": 49,
+  "yesterday_breach_count": 20,
+  "yesterday_breach_pct": 40.8,
+  "today_edd_cohort_size": 43,
+  "today_at_risk_count": 8,
+  "yesterday_not_attempted_count": 1,
+  "data_confidence": "ACTUAL/DERIVED \u2014 computed directly from order_date/edd/delivery_date/current_status/attempt_number, no fabricated values. 'Breach' includes late-delivered + RTO + Lost + still-open-past-EDD (broader than the edd_missed column used for the headline EDD adherence KPI, which only covers delivered-late shipments \u2014 see docs/data_assumptions.md)."
+}

@@ -1,0 +1,2 @@
+shipment_id,awb,order_id,carrier,customer_city,lane_class,current_status,edd,attempt_number,has_ndr,ndr_reason
+BB37531C4D,AWB7549259881,101814706084,Carrier B,Muzaffarpur,National,In-Transit,2026-02-27,0,True,Customer requested re-attempt
