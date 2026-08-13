@@ -1,4 +1,4 @@
-# AI Logistics EDD Control Tower
+# EDD Control Tower
 
 An end-to-end, working AI-powered logistics control tower for an Indian
 D2C e-commerce shipper — built from a raw shipment workbook to a trained ML

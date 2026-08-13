@@ -1,5 +1,5 @@
 """
-End-to-end pipeline runner for the AI Logistics EDD Control Tower.
+End-to-end pipeline runner for the EDD Control Tower.
 
     python run_pipeline.py
 
@@ -22,6 +22,7 @@ def main():
         ("Train EDD risk + NDR models", "src.models.edd_risk_model"),
         ("Score predictions", "src.predictions.predict"),
         ("EDD breach alert agent", "src.alerts_agent.edd_breach_alerts"),
+        ("Daily EDD breach tracker (carrier/lane/yesterday/today)", "src.alerts_agent.daily_edd_tracker"),
         ("Lane intelligence (incl. padding recs)", "src.lane_engine.lane_intelligence"),
         ("Carrier optimization", "src.carrier_engine.carrier_optimization"),
         ("NDR recovery agent", "src.ndr_agent.ndr_recovery"),
