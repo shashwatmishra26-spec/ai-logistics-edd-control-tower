@@ -7,7 +7,7 @@ action-first layer on top of that score: it filters down to shipments still
 IN TRANSIT that are at risk of missing (or have already passed) their
 promised EDD, and for each one generates a mock, two-channel alert —
 
-  1. a customer-care team update (what a care agent would see in their queue)
+  1. a Customer Care Team update (what a care agent would see in their queue)
   2. a push-notification payload (what the customer's app would show)
 
 No real message is sent anywhere — see docs/data_assumptions.md. The output
@@ -131,7 +131,7 @@ def build_breach_alert_queue(preds: pd.DataFrame, features: pd.DataFrame) -> pd.
     open_preds["push_notification_body"] = open_preds.apply(_push_body, axis=1)
     open_preds["data_confidence"] = (
         "AI_PREDICTED (risk score) + MOCK (message content — no real push notification or "
-        "care-team ticket is actually sent; see docs/data_assumptions.md)"
+        "Customer Care Team ticket is actually sent; see docs/data_assumptions.md)"
     )
 
     open_preds["_rank"] = open_preds["alert_priority"].map(PRIORITY_RANK)
