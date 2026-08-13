@@ -121,6 +121,21 @@ Lane (`outputs/lane_scorecard.csv`), Carrier (`outputs/carrier_scorecard.csv`), 
 | `notice_deadline` | SYNTHETIC (policy) | `SNAPSHOT_DATE + WATCHLIST_IMPROVEMENT_WINDOW_DAYS` (14 days). |
 | `mock_carrier_notice` | MOCK | Generated outbound "improve or we shift volume" notice text; never actually sent to a carrier. |
 
+## 8c. Daily EDD Breach Tracker fields (`outputs/carrier_edd_breach_summary.csv`, `outputs/lane_edd_breach_top20.csv`, `outputs/daily_edd_tracker_summary.json`, `outputs/yesterday_edd_breach_shipments.csv`, `outputs/today_edd_at_risk_shipments.csv`, `outputs/yesterday_not_attempted_shipments.csv`)
+
+All scoped to shipments whose `edd <= EDD_TRACKING_AS_OF_DATE` (2026-02-28 —
+see docs/data_assumptions.md for why this is a second, independent date from
+`SNAPSHOT_DATE`).
+
+| Field | Confidence | Definition |
+|---|---|---|
+| `breached` (internal column, not exported) | DERIVED | `True` if delivered after EDD, RTO, Lost, or still open with EDD already passed as of the as-of date. Broader than `edd_missed` (§3), which only covers delivered-late shipments. |
+| `shipment_volume`, `breached_shipments`, `breach_pct` (carrier summary) | DERIVED (carrier label=SYNTHETIC; outcome=ACTUAL) | Per-carrier breach count and rate among in-scope shipments. |
+| `rank`, `shipment_volume`, `breached_shipments`, `breach_pct` (top lanes) | DERIVED | Top `TOP_BREACH_LANES_COUNT` (20) `(customer_city, lane_class)` combinations ranked by absolute breach count (not rate), minimum `MIN_VOLUME_FOR_BREACH_RANKING` (3) shipments to filter single-shipment noise. |
+| `yesterday_breach_count`, `yesterday_breach_pct` | DERIVED | Of shipments whose EDD was the day before the as-of date, how many breached. |
+| `today_at_risk_count` | DERIVED | Of shipments whose EDD is the as-of date itself, how many are still open (not yet resolved) — a forward-looking count, not a certainty, since the day isn't over. |
+| `yesterday_not_attempted_count` | DERIVED | Of yesterday's EDD cohort, how many have `attempt_number == 0` (no delivery attempt was ever made). Reported as computed even when small — see docs/data_assumptions.md's note on not padding small, honest cohort counts. |
+
 ## 9. NDR Consolidation / IVR / Outreach / Channel Routing fields (`outputs/ndr_consolidated_report.csv`, `outputs/ivr_call_sheet.csv`, `outputs/ndr_customer_outreach.csv`, `outputs/ndr_care_team_digest.txt`, `outputs/ndr_channel_routing.csv`, `outputs/ndr_pending_response_outreach.xlsx`)
 
 | Field | Confidence | Definition |

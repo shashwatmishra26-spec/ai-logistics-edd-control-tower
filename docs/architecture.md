@@ -29,6 +29,19 @@ data/raw/logistics_workbook_raw.xlsx
         │ alerts.csv,  │ edd_padding_        │ carrier_lane_scorecard.csv,│ notifications.csv│ queue.csv
         │ lane_breach_ │ recommendations.csv │ carrier_mix_recommendations.csv│           │
         │ summary.csv  │                     │                              │           │
+        ▼              │                     │                              │           │
+ src/alerts_agent/     │                     │                              │           │
+ daily_edd_tracker.py  │                     │                              │           │
+ -> carrier_edd_breach_│                     │                              │           │
+    summary.csv,       │                     │                              │           │
+    lane_edd_breach_    │                     │                              │           │
+    top20.csv,          │                     │                              │           │
+    yesterday/today     │                     │                              │           │
+    shipment lists,      │                     │                              │           │
+    daily_edd_tracker_   │                     │                              │           │
+    summary.json         │                     │                              │           │
+    (reads straight into dashboard_export.py — bypasses the decision engine,  │           │
+     see "Primary-objective agents" below)                                    │           │
         │              │ watchlist_candidate │ (uses lane_scorecard +     │           │
         │              │ feeds carrier_      │  padding recs to flag     │           │
         │              │ optimization.py ────┤  lanes for the watchlist) │           │
@@ -120,6 +133,19 @@ from charts:
   turns this into a per-channel Excel workbook of customers still pending a
   response — the attachment for the outreach email drafted to the
   responsible team.
+- **`src/alerts_agent/daily_edd_tracker.py`** — the Daily EDD Breach Tracker.
+  Answers the questions a Head of Logistics asks every morning, viewed from
+  `config.EDD_TRACKING_AS_OF_DATE` (the last day of Feb 2026, a leadership-
+  requested vantage point, deliberately kept independent of `SNAPSHOT_DATE`
+  — see docs/data_assumptions.md): which carrier partner is causing the most
+  breaches, how many shipments broke their EDD promise yesterday, how many
+  are still open and at risk of breaching today, how many of yesterday's EDD
+  cohort never even got a delivery attempt, and the top 20 lanes driving the
+  network's breach volume in absolute terms. Reads straight from
+  `shipments_features.csv` and writes directly to files `dashboard_export.py`
+  picks up — it does not go through the central decision engine, since it
+  answers a different class of question ("what happened yesterday/today")
+  than the priority-ranked action queue.
 
 ## Why this shape
 

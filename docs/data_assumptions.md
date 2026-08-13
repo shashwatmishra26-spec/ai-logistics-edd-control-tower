@@ -94,6 +94,14 @@ company.
 
 - **Method:** `snapshot_date (2026-03-05) - order_date`, in days. DERIVED, not synthetic — pure arithmetic on ACTUAL fields, listed here only because it's frequently confused with a "live" ageing clock. In production this would be computed against `datetime.now()`, not a fixed snapshot.
 
+### Daily EDD Tracker "as of" date (2026-08)
+
+- **Source:** Not a data field — a second, independent reference date, `EDD_TRACKING_AS_OF_DATE = "2026-02-28"` in `config/config.py`.
+- **Method:** Used only by `src/alerts_agent/daily_edd_tracker.py` to answer questions framed as "as of end of day" — shipments that breached EDD yesterday, shipments still open and at risk of breaching today, and yesterday's EDD cohort that never received a delivery attempt. Deliberately kept separate from `SNAPSHOT_DATE` (2026-03-05), which anchors every ageing/attempt-count feature and is cross-checked against the source workbook's own Validation sheet — changing `SNAPSHOT_DATE` to "play along" with this exercise would have silently shifted that cross-check and every downstream ML feature.
+- **Assumption:** Per a 2026-08 leadership request to view the network from the vantage point of the last day of February 2026. "Breach" in this tracker is intentionally broader than the `edd_missed` column used for the headline EDD-adherence KPI (delivered-late only) — it also counts RTO, Lost, and still-open shipments whose EDD has already passed, since all four honestly mean the promise wasn't kept.
+- **Reason:** The underlying dataset only spans Jan 1 – Feb 27, 2026 for order dates, so "yesterday" (27 Feb) and "today" (28 Feb) land inside the real data (49 and 43 shipments were promised EDD on those two dates respectively) rather than requiring any invented rows.
+- **Replace with:** `datetime.now()` in production — the "as of" framing is a leadership-requested snapshot, not a permanent design choice.
+
 ---
 
 ## Fields explicitly NOT fabricated
