@@ -1,5 +1,5 @@
 """
-Central configuration for the AI Logistics EDD Control Tower.
+Central configuration for the EDD Control Tower.
 
 All thresholds, business rules and synthetic-data parameters live here so the
 rest of the codebase never hard-codes a "magic number". Change values here to
@@ -54,11 +54,38 @@ NDR_PENDING_RESPONSE_XLSX_PATH = OUTPUTS_DIR / "ndr_pending_response_outreach.xl
 # Carrier Partner Improvement / Volume-Shift Watchlist
 CARRIER_WATCHLIST_PATH = OUTPUTS_DIR / "carrier_partner_watchlist.csv"
 
+# Daily EDD Breach Tracker (carrier-wise breach, top lanes, yesterday/today)
+CARRIER_EDD_BREACH_PATH = OUTPUTS_DIR / "carrier_edd_breach_summary.csv"
+LANE_EDD_BREACH_TOP_PATH = OUTPUTS_DIR / "lane_edd_breach_top20.csv"
+DAILY_EDD_TRACKER_SUMMARY_PATH = OUTPUTS_DIR / "daily_edd_tracker_summary.json"
+YESTERDAY_BREACH_SHIPMENTS_PATH = OUTPUTS_DIR / "yesterday_edd_breach_shipments.csv"
+TODAY_AT_RISK_SHIPMENTS_PATH = OUTPUTS_DIR / "today_edd_at_risk_shipments.csv"
+YESTERDAY_NOT_ATTEMPTED_SHIPMENTS_PATH = OUTPUTS_DIR / "yesterday_not_attempted_shipments.csv"
+
 # ---------------------------------------------------------------------------
 # Business targets
 # ---------------------------------------------------------------------------
 EDD_TARGET = 0.95          # Target EDD adherence (leadership goal; raised from 0.94 2026-08)
-SNAPSHOT_DATE = "2026-03-05"  # "Today" for the dataset, per Validation sheet
+SNAPSHOT_DATE = "2026-03-05"  # "Today" for the dataset, per Validation sheet — anchors shipment
+                               # ageing/attempt-count features (build_features.py) and is
+                               # cross-checked against the source workbook's own Validation sheet
+                               # (tests/test_model_and_decision_engine.py). NEVER change this for
+                               # a "what if today were X" exercise — use EDD_TRACKING_AS_OF_DATE
+                               # below instead, which is scoped only to the daily breach tracker.
+
+# EDD_TRACKING_AS_OF_DATE: a second, independent "today" used ONLY by the Daily
+# EDD Breach Tracker (src/alerts_agent/daily_edd_tracker.py) to answer
+# operational questions framed as "as of end of day" — e.g. "how many
+# shipments breached EDD yesterday", "how many are at risk of breaching
+# today". Set to the last day of Feb 2026 per a 2026-08 leadership request to
+# view the network from that vantage point. Deliberately separate from
+# SNAPSHOT_DATE so this framing exercise can never affect ageing features,
+# the ML model, or the Validation-sheet cross-check above.
+EDD_TRACKING_AS_OF_DATE = "2026-02-28"
+# Minimum shipment volume on a lane before it's eligible for the top-breach-
+# lanes ranking (mirrors MIN_OPEN_VOLUME_FOR_BREACH_SUMMARY's noise floor).
+MIN_VOLUME_FOR_BREACH_RANKING = 3
+TOP_BREACH_LANES_COUNT = 20
 
 # ---------------------------------------------------------------------------
 # Warehouse / origin (single-origin operation observed in raw data)
