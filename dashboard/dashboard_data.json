@@ -37022,7 +37022,7 @@
     }
   ],
   "meta": {
-    "generated_for": "AI Logistics EDD Control Tower",
+    "generated_for": "EDD Control Tower",
     "snapshot_date": "2026-02-27",
     "edd_target": 0.95
   },
@@ -44515,6 +44515,216 @@
       "notice_deadline": "2026-03-19",
       "mock_carrier_notice": "NOTICE TO CARRIER PARTNER \u2014 Carrier D (lane: Faridabad / National). Current EDD adherence on this lane is 88.9% against a 95% target (6.1pp gap), driven by chronic underperformance, n=25 shipments. We need a documented improvement plan and measurable EDD-adherence recovery on this lane within 14 days (by 2026-03-19), or volume on this lane will be shifted to an alternate carrier partner. [MOCK \u2014 outbound carrier communication, not sent]",
       "data_confidence": "carrier_label=SYNTHETIC; EDD/volume outcomes=ACTUAL; notice=MOCK (never sent)"
+    }
+  ],
+  "daily_edd_tracker": {
+    "as_of_date": "2026-02-28",
+    "yesterday_date": "2026-02-27",
+    "network_breach_pct_through_as_of": 37.8,
+    "network_shipments_in_scope": 2349,
+    "network_shipments_breached": 888,
+    "yesterday_edd_cohort_size": 49,
+    "yesterday_breach_count": 20,
+    "yesterday_breach_pct": 40.8,
+    "today_edd_cohort_size": 43,
+    "today_at_risk_count": 8,
+    "yesterday_not_attempted_count": 1,
+    "data_confidence": "ACTUAL/DERIVED \u2014 computed directly from order_date/edd/delivery_date/current_status/attempt_number, no fabricated values. 'Breach' includes late-delivered + RTO + Lost + still-open-past-EDD (broader than the edd_missed column used for the headline EDD adherence KPI, which only covers delivered-late shipments \u2014 see docs/data_assumptions.md)."
+  },
+  "carrier_edd_breach_summary": [
+    {
+      "carrier": "Carrier D",
+      "shipment_volume": 664,
+      "breached_shipments": 267,
+      "breach_pct": 40.2,
+      "edd_adherence_pct": 59.8,
+      "data_confidence": "DERIVED (carrier label is SYNTHETIC; breach outcome is ACTUAL)"
+    },
+    {
+      "carrier": "Carrier A",
+      "shipment_volume": 532,
+      "breached_shipments": 206,
+      "breach_pct": 38.7,
+      "edd_adherence_pct": 61.3,
+      "data_confidence": "DERIVED (carrier label is SYNTHETIC; breach outcome is ACTUAL)"
+    },
+    {
+      "carrier": "Carrier B",
+      "shipment_volume": 572,
+      "breached_shipments": 215,
+      "breach_pct": 37.6,
+      "edd_adherence_pct": 62.4,
+      "data_confidence": "DERIVED (carrier label is SYNTHETIC; breach outcome is ACTUAL)"
+    },
+    {
+      "carrier": "Carrier C",
+      "shipment_volume": 581,
+      "breached_shipments": 200,
+      "breach_pct": 34.4,
+      "edd_adherence_pct": 65.6,
+      "data_confidence": "DERIVED (carrier label is SYNTHETIC; breach outcome is ACTUAL)"
+    }
+  ],
+  "lane_edd_breach_top": [
+    {
+      "rank": 1,
+      "customer_city": "Bangalore",
+      "lane_class": "Metro",
+      "shipment_volume": 193,
+      "breached_shipments": 79,
+      "breach_pct": 40.9
+    },
+    {
+      "rank": 2,
+      "customer_city": "Mumbai",
+      "lane_class": "Local",
+      "shipment_volume": 157,
+      "breached_shipments": 59,
+      "breach_pct": 37.6
+    },
+    {
+      "rank": 3,
+      "customer_city": "Gurgaon",
+      "lane_class": "Metro",
+      "shipment_volume": 87,
+      "breached_shipments": 37,
+      "breach_pct": 42.5
+    },
+    {
+      "rank": 4,
+      "customer_city": "Hyderabad",
+      "lane_class": "Metro",
+      "shipment_volume": 75,
+      "breached_shipments": 31,
+      "breach_pct": 41.3
+    },
+    {
+      "rank": 5,
+      "customer_city": "Pune",
+      "lane_class": "Metro",
+      "shipment_volume": 75,
+      "breached_shipments": 24,
+      "breach_pct": 32.0
+    },
+    {
+      "rank": 6,
+      "customer_city": "Ghaziabad",
+      "lane_class": "National",
+      "shipment_volume": 42,
+      "breached_shipments": 19,
+      "breach_pct": 45.2
+    },
+    {
+      "rank": 7,
+      "customer_city": "Thane",
+      "lane_class": "Local",
+      "shipment_volume": 50,
+      "breached_shipments": 18,
+      "breach_pct": 36.0
+    },
+    {
+      "rank": 8,
+      "customer_city": "Gautam Buddha Nagar",
+      "lane_class": "Metro",
+      "shipment_volume": 61,
+      "breached_shipments": 18,
+      "breach_pct": 29.5
+    },
+    {
+      "rank": 9,
+      "customer_city": "West Delhi",
+      "lane_class": "National",
+      "shipment_volume": 33,
+      "breached_shipments": 16,
+      "breach_pct": 48.5
+    },
+    {
+      "rank": 10,
+      "customer_city": "Jaipur",
+      "lane_class": "National",
+      "shipment_volume": 35,
+      "breached_shipments": 15,
+      "breach_pct": 42.9
+    },
+    {
+      "rank": 11,
+      "customer_city": "Ahmedabad",
+      "lane_class": "Metro",
+      "shipment_volume": 29,
+      "breached_shipments": 14,
+      "breach_pct": 48.3
+    },
+    {
+      "rank": 12,
+      "customer_city": "K.V.Rangareddy",
+      "lane_class": "National",
+      "shipment_volume": 37,
+      "breached_shipments": 13,
+      "breach_pct": 35.1
+    },
+    {
+      "rank": 13,
+      "customer_city": "South Delhi",
+      "lane_class": "National",
+      "shipment_volume": 23,
+      "breached_shipments": 12,
+      "breach_pct": 52.2
+    },
+    {
+      "rank": 14,
+      "customer_city": "South West Delhi",
+      "lane_class": "National",
+      "shipment_volume": 35,
+      "breached_shipments": 12,
+      "breach_pct": 34.3
+    },
+    {
+      "rank": 15,
+      "customer_city": "East Delhi",
+      "lane_class": "National",
+      "shipment_volume": 21,
+      "breached_shipments": 10,
+      "breach_pct": 47.6
+    },
+    {
+      "rank": 16,
+      "customer_city": "Faridabad",
+      "lane_class": "National",
+      "shipment_volume": 26,
+      "breached_shipments": 10,
+      "breach_pct": 38.5
+    },
+    {
+      "rank": 17,
+      "customer_city": "Kanchipuram",
+      "lane_class": "National",
+      "shipment_volume": 19,
+      "breached_shipments": 9,
+      "breach_pct": 47.4
+    },
+    {
+      "rank": 18,
+      "customer_city": "East Khasi Hills",
+      "lane_class": "National",
+      "shipment_volume": 14,
+      "breached_shipments": 8,
+      "breach_pct": 57.1
+    },
+    {
+      "rank": 19,
+      "customer_city": "Kolkata",
+      "lane_class": "Metro",
+      "shipment_volume": 15,
+      "breached_shipments": 8,
+      "breach_pct": 53.3
+    },
+    {
+      "rank": 20,
+      "customer_city": "Lucknow",
+      "lane_class": "National",
+      "shipment_volume": 21,
+      "breached_shipments": 8,
+      "breach_pct": 38.1
     }
   ],
   "edd_trend_weekly": [
