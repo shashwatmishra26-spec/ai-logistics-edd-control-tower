@@ -201,8 +201,15 @@ class TestPaddingRecommendations(unittest.TestCase):
         df = pd.DataFrame([_transit_row("ExtremeCity", "Metro", 20) for _ in range(vol)])
         out = compute_padding_recommendations(df, lane_df)
         row = out.iloc[0]
-        self.assertEqual(row["recommended_padding_days"], MAX_RECOMMENDED_PADDING_DAYS)
+        # The raw gap (17d) blows past both the sanity cap (MAX_RECOMMENDED_PADDING_DAYS)
+        # and the hard per-lane ceiling (MAX_LANE_EDD_CEILING_DAYS) -- whichever binds
+        # first wins, and here the per-lane ceiling is the tighter constraint.
+        self.assertLessEqual(row["recommended_padding_days"], MAX_RECOMMENDED_PADDING_DAYS)
+        self.assertEqual(row["new_transit_sla_days"], row["lane_ceiling_days"])
         self.assertTrue(bool(row["manual_review_needed"]))
+        # Even at the max honest promise, P90 actual transit (20d) still blows past it
+        # -- padding can't fix this lane, so it must be routed to the carrier watchlist.
+        self.assertTrue(bool(row["watchlist_candidate"]))
 
 
 # ---------------------------------------------------------------------------
