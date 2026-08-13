@@ -18,16 +18,20 @@ if str(ROOT_DIR) not in sys.path:
 from config.config import (  # noqa: E402
     ACTION_QUEUE_PATH,
     BREACH_ALERT_QUEUE_PATH,
+    CARRIER_EDD_BREACH_PATH,
     CARRIER_LANE_SCORECARD_PATH,
     CARRIER_MIX_RECOMMENDATIONS_PATH,
     CARRIER_SCORECARD_PATH,
+    CARRIER_WATCHLIST_PATH,
     COD_QUEUE_PATH,
+    DAILY_EDD_TRACKER_SUMMARY_PATH,
     DASHBOARD_DATA_PATH,
     EDD_TARGET,
     FEATURED_SHIPMENTS_PATH,
     IVR_CALL_SHEET_PATH,
     KPI_SUMMARY_PATH,
     LANE_BREACH_SUMMARY_PATH,
+    LANE_EDD_BREACH_TOP_PATH,
     LANE_SCORECARD_PATH,
     NDR_CARE_TEAM_DIGEST_PATH,
     NDR_CONSOLIDATED_REPORT_PATH,
@@ -62,6 +66,21 @@ def run():
     ivr_sheet_df = pd.read_csv(IVR_CALL_SHEET_PATH)
     ndr_outreach_df = pd.read_csv(NDR_CUSTOMER_OUTREACH_PATH)
     ndr_care_digest = NDR_CARE_TEAM_DIGEST_PATH.read_text() if NDR_CARE_TEAM_DIGEST_PATH.exists() else ""
+    try:
+        watchlist_df = pd.read_csv(CARRIER_WATCHLIST_PATH)
+    except FileNotFoundError:
+        watchlist_df = pd.DataFrame()
+
+    # --- Daily EDD Breach Tracker (carrier/lane/yesterday/today) ------------
+    try:
+        carrier_breach_df = pd.read_csv(CARRIER_EDD_BREACH_PATH)
+        lane_breach_top_df = pd.read_csv(LANE_EDD_BREACH_TOP_PATH)
+        with open(DAILY_EDD_TRACKER_SUMMARY_PATH) as f:
+            daily_tracker = json.load(f)
+    except FileNotFoundError:
+        carrier_breach_df = pd.DataFrame()
+        lane_breach_top_df = pd.DataFrame()
+        daily_tracker = {}
 
     # --- EDD adherence trend by order week (ACTUAL) -------------------------
     delivered = df[df["is_delivered"]].copy()
@@ -116,7 +135,7 @@ def run():
     payload = {
         "shipments": shipments_compact.to_dict(orient="records"),
         "meta": {
-            "generated_for": "AI Logistics EDD Control Tower",
+            "generated_for": "EDD Control Tower",
             "snapshot_date": kpis["snapshot_date"],
             "edd_target": EDD_TARGET,
         },
@@ -130,6 +149,15 @@ def run():
         "ivr_call_sheet": ivr_sheet_df.to_dict(orient="records"),
         "ndr_customer_outreach": ndr_outreach_df.to_dict(orient="records"),
         "ndr_care_team_digest": ndr_care_digest,
+        "ndr_channel_routing_summary": (
+            ndr_q["recommended_channel"].value_counts().to_dict() if "recommended_channel" in ndr_q.columns else {}
+        ),
+        # --- Carrier Partner Improvement / Volume-Shift Watchlist (primary objective)
+        "carrier_watchlist": watchlist_df.to_dict(orient="records"),
+        # --- Daily EDD Breach Tracker (primary objective) ---------------------
+        "daily_edd_tracker": daily_tracker,
+        "carrier_edd_breach_summary": carrier_breach_df.to_dict(orient="records"),
+        "lane_edd_breach_top": lane_breach_top_df.to_dict(orient="records"),
         "edd_trend_weekly": weekly.to_dict(orient="records"),
         "rto_trend_weekly": rto_weekly.to_dict(orient="records"),
         "ndr_pareto": ndr_pareto.to_dict(orient="records"),
