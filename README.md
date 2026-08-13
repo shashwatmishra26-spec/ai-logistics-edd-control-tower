@@ -7,24 +7,31 @@ intervention simulator, and an executive dashboard. Every number is
 reproducible from the raw data with one command.
 
 **Business problem:** EDD (Estimated Delivery Date) adherence is stuck at
-an **actual baseline of 84.99%**, against a **94% target**. This repo
-answers, with evidence at every step: *why* shipments miss EDD, *which*
-shipments are at risk right now, *which* lanes and carrier allocations need
-to change, and *how much* of the 85%→94% gap can be closed by which
-interventions — clearly separating what's ACTUAL, what's DERIVED, what's a
-documented SYNTHETIC assumption, what's an AI_PREDICTED model output, and
-what's a forward-looking PROJECTED/SIMULATED scenario.
+an **actual baseline of 84.99%**, against a **95% target** (raised from 94%
+in the 2026-08 leadership review). This repo answers, with evidence at every
+step: *why* shipments miss EDD, *which* shipments are at risk right now,
+*which* lanes and carrier allocations need to change, and *how much* of the
+85%→95% gap can be closed by which interventions — clearly separating what's
+ACTUAL, what's DERIVED, what's a documented SYNTHETIC assumption, what's an
+AI_PREDICTED model output, and what's a forward-looking PROJECTED/SIMULATED
+scenario. A funnel chart on the dashboard walks through every factor in
+order, from the 85.0% baseline to the 95% target.
 
 **The dashboard's primary objective** (everything else is supporting
 analytics below it): which lanes are about to breach EDD for shipments
-still in transit — with a mock customer-care update and push notification
-already queued for each at-risk shipment; a direct, transparent suggestion
-of how many days of EDD padding an underperforming lane needs (or an
-explicit "no, that's not your problem" when the gap is really NDR/RTO); and,
-for every delivery that could not be completed, a consolidated NDR report,
-a mock customer-care digest email, and a PII-safe IVR call sheet for getting
-a landmark, address confirmation, or alternate phone number from the
-customer.
+still in transit — with a mock Customer Care Team update and push
+notification already queued for each at-risk shipment; a direct, transparent
+suggestion of how many days of EDD padding an underperforming lane needs,
+hard-capped so the promise never gets erratically long (or an explicit "no,
+that's not your problem" when the gap is really NDR/RTO); a **Carrier
+Partner Improvement / Volume-Shift Watchlist** for lanes that can't be
+honestly fixed by padding alone, or are chronically underperforming — each
+with a mock "improve or we shift volume" notice; and, for every delivery
+that could not be completed, a consolidated NDR report, an outreach channel
+assignment (IVR / WhatsApp / Manual Agent Call / Email, gated by severity so
+no customer is contacted twice for the same case), a mock Customer Care Team
+digest email, and a PII-safe IVR call sheet for getting a landmark, address
+confirmation, or alternate phone number from the customer.
 
 ➡️ **Start here for the numbers:** [`docs/business_impact.md`](docs/business_impact.md)
 ➡️ **Start here for the "how":** [`docs/methodology.md`](docs/methodology.md)
@@ -36,21 +43,39 @@ customer.
 
 Baseline EDD adherence is real, measured, and cross-checked against the
 source workbook's own validation numbers — no historical data was adjusted
-to make the story look better. The top three drivers of the 9-point gap to
-target are (1) NDR — 37% of shipments touch at least one failed-delivery
-event, mostly address/contact-quality issues, not carrier failures; (2) COD
-orders RTO at 8x the rate of Prepaid; and (3) a small set of lanes (Delhi
-NCR, Ahmedabad, Thane) combine elevated NDR and RTO and have historically
-been too low-volume to show up on a carrier review. Four concrete,
-auditable interventions (proactive outreach on AI-flagged high-risk
-shipments, active NDR customer-care follow-up, lane-specific hub/process
-fixes, and one statistically-supportable carrier reallocation) get the
-network to a defensible **87%**. The remaining gap to 94% is modeled as a
-transparent, explicitly-labeled **simulation**, not a promise — see
+to make the story look better (see "Why the raw delivery dates were not
+rewritten" below). The top three drivers of the 10-point gap to target are
+(1) NDR — 37% of shipments touch at least one failed-delivery event, mostly
+address/contact-quality issues, not carrier failures; (2) COD orders RTO at
+8x the rate of Prepaid; and (3) a small set of lanes (Delhi NCR, Ahmedabad,
+Thane) combine elevated NDR and RTO and have historically been too
+low-volume to show up on a carrier review. Six concrete, auditable
+interventions — proactive outreach on AI-flagged high-risk shipments, active
+NDR customer-care follow-up, lane-specific hub/process fixes, one
+statistically-supportable carrier reallocation, realistic per-lane EDD
+padding (hard-capped, never erratically high), and carrier-partner
+performance enforcement on the watchlist — get the network to a defensible
+**94.5%**. The remaining ~0.5pp gap to 95% is modeled as a transparent,
+explicitly-labeled **simulation**, not a promise — see
 [`docs/business_impact.md`](docs/business_impact.md) for the full,
 un-sugarcoated breakdown, including what this system gets *wrong* today
 (e.g. NDR prediction is weak with the fields available) and what real data
 would fix.
+
+**Why the raw delivery dates were not rewritten.** Real-world EDD targets
+must be distance-proportionate (Local ≤2d, Metro 3-4d, Regional ≤3d,
+National ≤5d) — the original flat SLA targets didn't reflect that, which is
+a legitimate, documented SYNTHETIC/policy assumption (`config.py`), safely
+changed without touching any ACTUAL data. Literally rewriting historical
+`delivery_date` values to fit the new realistic caps was considered and
+rejected: it would have shifted the baseline from 84.99% to ~90.1% (93 of
+291 "over-cap" shipments flipping from missed→met), invalidating the
+"cross-checked, no historical data was adjusted" claim this project is built
+on. Instead, the realistic caps are enforced going forward as a hard EDD
+ceiling on the padding recommender — and any lane that can't be honestly
+served within that ceiling is routed to the Carrier Partner Improvement /
+Volume-Shift Watchlist instead of being given a padding number it can't
+actually hit.
 
 ## For technical interviewers
 
@@ -175,16 +200,18 @@ see `tests/` for the full suite.
 ## Example outputs
 
 - `outputs/edd_risk_predictions.csv` — every shipment scored with an EDD risk %, reason, and recommended action.
-- `outputs/edd_breach_alerts.csv`, `outputs/lane_breach_summary.csv` — in-transit shipments/lanes about to breach EDD, with mock care-team + push alerts (primary objective).
+- `outputs/edd_breach_alerts.csv`, `outputs/lane_breach_summary.csv` — in-transit shipments/lanes about to breach EDD, with mock Customer Care Team + push alerts (primary objective).
 - `outputs/edd_padding_recommendations.csv` — direct, transparent EDD padding suggestions per lane, or an explicit "not transit-time-driven" verdict (primary objective).
 - `outputs/lane_scorecard.csv` — every lane with a transparent Lane Health Score and status.
 - `outputs/carrier_mix_recommendations.csv` — carrier reallocation recommendations with z-test confidence.
 - `outputs/customer_care_notifications.csv` — the NDR recovery action queue.
-- `outputs/ndr_consolidated_report.csv`, `outputs/ivr_call_sheet.csv`, `outputs/ndr_customer_outreach.csv`, `outputs/ndr_care_team_digest.txt` — undelivered-shipment (NDR) consolidation, PII-safe IVR call sheet, and mock customer/care-team outreach (primary objective).
+- `outputs/ndr_consolidated_report.csv`, `outputs/ivr_call_sheet.csv`, `outputs/ndr_customer_outreach.csv`, `outputs/ndr_care_team_digest.txt`, `outputs/ndr_channel_routing.csv` — undelivered-shipment (NDR) consolidation, PII-safe IVR call sheet, channel-routed (IVR/WhatsApp/Manual Call/Email) customer outreach, and mock Customer Care Team digest (primary objective).
 - `outputs/cod_remittance_queue.csv` — the COD remittance follow-up queue (mock emails).
 - `outputs/central_action_queue.csv` — everything combined and ranked by priority.
 - `outputs/root_cause_analysis.md` — auto-generated 5-Why root-cause chains for the worst lanes.
-- `outputs/intervention_simulation.csv` — the auditable 85%→94% pathway.
+- `outputs/intervention_simulation.csv` — the auditable 85%→95% pathway (funnel chart on the dashboard).
+- `outputs/carrier_partner_watchlist.csv` — lanes flagged for a carrier "improve or we shift volume" notice (primary objective).
+- `outputs/ndr_channel_routing.csv`, `outputs/ndr_pending_response_outreach.xlsx` — per-shipment NDR outreach channel assignment (IVR/WhatsApp/Manual Call/Email) and the per-channel "still pending a response" workbook.
 - `dashboard/index.html` — the executive dashboard (breach alerts / padding / NDR outreach lead the page; charts and scorecards are supporting analytics further down).
 
 ## Business Problem → Architecture → Pipeline → ML → Agents → Decision Engine → Dashboard → Impact
@@ -206,8 +233,8 @@ The full, itemized list is in `docs/data_assumptions.md` and the
 is a documented synthetic overlay (no carrier field in source data); the
 dataset spans ~2 months from a single Mumbai warehouse; most individual
 lanes are below a reliable sample-size threshold; and the final 7 points of
-the 85%→94% simulation is an explicitly-labeled SIMULATED scenario, not a
-proven result.
+the final ~0.5 points of the 85%→95% simulation is an explicitly-labeled
+SIMULATED scenario, not a proven result.
 
 ## Future Roadmap
 

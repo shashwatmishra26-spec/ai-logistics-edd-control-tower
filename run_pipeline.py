@@ -26,6 +26,7 @@ def main():
         ("Carrier optimization", "src.carrier_engine.carrier_optimization"),
         ("NDR recovery agent", "src.ndr_agent.ndr_recovery"),
         ("NDR consolidated report + IVR + outreach", "src.ndr_agent.ndr_consolidated_report"),
+        ("NDR pending-response outreach export (Excel)", "src.ndr_agent.ndr_pending_response_export"),
         ("COD remittance agent", "src.remittance_agent.cod_remittance"),
         ("Central decision engine", "src.decision_engine.central_decision_engine"),
         ("Root-cause engine", "src.decision_engine.root_cause"),
