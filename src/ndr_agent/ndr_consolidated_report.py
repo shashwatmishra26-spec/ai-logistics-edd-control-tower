@@ -9,7 +9,7 @@ per-shipment queue:
   1. A consolidated report (outputs/ndr_consolidated_report.csv): one table,
      broken down by reason AND by lane, so a manager can see where the NDR
      problem is concentrated without opening the raw queue.
-  2. A mock digest email to the customer-care team (outputs/ndr_care_team_
+  2. A mock digest email to the Customer Care Team (outputs/ndr_care_team_
      digest.txt) — one email, not one per shipment, summarizing the queue.
   3. A call sheet for an IVR / outbound-calling team (outputs/
      ivr_call_sheet.csv) — what to ask the customer for (landmark, address,
@@ -95,18 +95,24 @@ def consolidate_ndr_report(ndr_queue: pd.DataFrame) -> pd.DataFrame:
         g["avg_reattempt_success_probability"] = g["avg_reattempt_success_probability"].round(3)
         return g[columns]
 
-    report = pd.concat(
-        [_breakdown("ndr_reason", "reason"), _breakdown("lane_class", "lane_class")],
-        ignore_index=True,
-    )
+    breakdowns = [_breakdown("ndr_reason", "reason"), _breakdown("lane_class", "lane_class")]
+    if "recommended_channel" in ndr_queue.columns:
+        breakdowns.append(_breakdown("recommended_channel", "recommended_channel"))
+    report = pd.concat(breakdowns, ignore_index=True)
     return report.sort_values(["dimension", "open_count"], ascending=[True, False]).reset_index(drop=True)
 
 
 def build_ivr_call_sheet(ndr_queue: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
+    """Call sheet for the automated-IVR + manual-agent calling teams — i.e.
+    every open NDR case routed to a voice channel (recommended_channel in
+    {IVR, Manual Agent Call}). Email-only cases (phone unreachable) are
+    intentionally excluded here; they're on ndr_customer_outreach.csv
+    instead. Each row also carries whether a parallel WhatsApp was sent, so
+    a caller knows not to also manually message the customer."""
     columns = [
         "shipment_id", "awb", "order_id", "carrier", "lane_class", "customer_city",
-        "ndr_reason", "ndr_category", "attempt_number", "priority", "info_needed",
-        "call_script", "contact_lookup_key", "contact_note",
+        "ndr_reason", "ndr_category", "attempt_number", "priority", "recommended_channel",
+        "also_whatsapp", "info_needed", "call_script", "contact_lookup_key", "contact_note",
     ]
     if ndr_queue.empty:
         return pd.DataFrame(columns=columns)
@@ -114,6 +120,11 @@ def build_ivr_call_sheet(ndr_queue: pd.DataFrame, features: pd.DataFrame) -> pd.
     sheet = ndr_queue.merge(
         features[["order_id", "customer_city"]], left_on="order_id", right_on="order_id", how="left"
     ).copy()
+    if "recommended_channel" in sheet.columns:
+        sheet = sheet[sheet["recommended_channel"].isin(["IVR", "Manual Agent Call"])].copy()
+    else:
+        sheet["recommended_channel"] = "IVR"
+        sheet["also_whatsapp"] = False
     sheet["info_needed"] = sheet["ndr_reason"].map(INFO_NEEDED_MAP).fillna(DEFAULT_INFO_NEEDED)
     sheet["call_script"] = (
         "Hello, this is [Carrier] calling about your order " + sheet["order_id"].astype(str) +
@@ -126,7 +137,7 @@ def build_ivr_call_sheet(ndr_queue: pd.DataFrame, features: pd.DataFrame) -> pd.
     priority_rank = {"P1 - Urgent": 0, "P2 - High": 1, "P3 - Standard": 2}
     sheet["_rank"] = sheet["priority"].map(priority_rank)
     sheet = sheet.sort_values(["_rank", "attempt_number"], ascending=[True, False]).drop(columns="_rank")
-    return sheet[columns]
+    return sheet[[c for c in columns if c in sheet.columns]]
 
 
 def _push_title(reason: str) -> str:
@@ -155,22 +166,38 @@ def _email_body(row) -> str:
     )
 
 
+def _whatsapp_message(row) -> str:
+    info = INFO_NEEDED_MAP.get(row["ndr_reason"], DEFAULT_INFO_NEEDED)
+    return (
+        f"Hi! Your order #{row['order_id']} couldn't be delivered ({row['ndr_reason'].lower()}). "
+        f"{info} — reply here or tap the link to sort it out in under a minute."
+    )
+
+
 def build_customer_outreach(ndr_queue: pd.DataFrame) -> pd.DataFrame:
     columns = [
-        "shipment_id", "order_id", "ndr_reason", "info_requested", "push_notification_title",
-        "push_notification_body", "email_subject", "email_body", "data_confidence",
+        "shipment_id", "order_id", "ndr_reason", "recommended_channel", "also_whatsapp",
+        "info_requested", "push_notification_title", "push_notification_body",
+        "email_subject", "email_body", "whatsapp_message", "data_confidence",
     ]
     if ndr_queue.empty:
         return pd.DataFrame(columns=columns)
 
     out = ndr_queue.copy()
+    if "recommended_channel" not in out.columns:
+        out["recommended_channel"] = "IVR"
+        out["also_whatsapp"] = False
     out["info_requested"] = out["ndr_reason"].map(INFO_NEEDED_MAP).fillna(DEFAULT_INFO_NEEDED)
     out["push_notification_title"] = out["ndr_reason"].apply(_push_title)
     out["push_notification_body"] = out.apply(_push_body, axis=1)
     out["email_subject"] = out.apply(_email_subject, axis=1)
     out["email_body"] = out.apply(_email_body, axis=1)
-    out["data_confidence"] = "MOCK (message content — no real push notification or email is actually sent)"
-    return out[columns]
+    out["whatsapp_message"] = out.apply(lambda r: _whatsapp_message(r) if r.get("also_whatsapp") else "", axis=1)
+    out["data_confidence"] = (
+        "MOCK (message content — no real push notification, email, WhatsApp message, or call is "
+        "actually sent; recommended_channel/also_whatsapp is the routing decision, not proof of contact)"
+    )
+    return out[[c for c in columns if c in out.columns]]
 
 
 def build_care_team_digest(ndr_queue: pd.DataFrame, report: pd.DataFrame) -> str:
@@ -195,6 +222,17 @@ def build_care_team_digest(ndr_queue: pd.DataFrame, report: pd.DataFrame) -> str
         for _, r in by_lane.iterrows()
     )
 
+    channel_lines = ""
+    if "recommended_channel" in ndr_queue.columns:
+        by_channel = ndr_queue["recommended_channel"].value_counts()
+        also_wa = int(ndr_queue.get("also_whatsapp", pd.Series(dtype=bool)).sum())
+        channel_lines = (
+            "\nChannel routing (each shipment gets exactly ONE primary channel, to avoid "
+            "duplicate contact):\n" +
+            "\n".join(f"  - {ch}: {n} shipments" for ch, n in by_channel.items()) +
+            f"\n  - + {also_wa} of these also get a parallel WhatsApp (action-needed reasons)\n"
+        )
+
     subject = f"[NDR Digest {snapshot}] {total} open shipments — {p1} urgent, {p2} high priority"
     body = (
         f"Dear Customer Care Team,\n\n"
@@ -202,9 +240,12 @@ def build_care_team_digest(ndr_queue: pd.DataFrame, report: pd.DataFrame) -> str
         f"({p1} P1-Urgent, {p2} P2-High). Full per-shipment queue: "
         f"outputs/customer_care_notifications.csv. Outbound call list: outputs/ivr_call_sheet.csv.\n\n"
         f"Top reasons:\n{reason_lines}\n\n"
-        f"Top lanes:\n{lane_lines}\n\n"
-        f"Customer-facing push/email outreach has been queued separately — see "
-        f"outputs/ndr_customer_outreach.csv.\n\n"
+        f"Top lanes:\n{lane_lines}\n"
+        f"{channel_lines}\n"
+        f"Customer-facing push/email/WhatsApp outreach has been queued separately — see "
+        f"outputs/ndr_customer_outreach.csv. A per-channel breakdown of customers still "
+        f"pending a response is attached to the outreach email (see "
+        f"outputs/ndr_pending_response_outreach.xlsx).\n\n"
         f"Regards,\nAI Logistics Control Tower"
     )
     return f"Subject: {subject}\n\n{body}\n"
@@ -231,7 +272,7 @@ def run():
     print(f"Wrote {len(report)} consolidated-report rows -> {NDR_CONSOLIDATED_REPORT_PATH}")
     print(f"Wrote {len(ivr_sheet)} IVR call-sheet rows -> {IVR_CALL_SHEET_PATH}")
     print(f"Wrote {len(outreach)} customer outreach rows -> {NDR_CUSTOMER_OUTREACH_PATH}")
-    print(f"Wrote care-team digest email -> {NDR_CARE_TEAM_DIGEST_PATH}")
+    print(f"Wrote Customer Care Team digest email -> {NDR_CARE_TEAM_DIGEST_PATH}")
     return report, ivr_sheet, outreach
 
 

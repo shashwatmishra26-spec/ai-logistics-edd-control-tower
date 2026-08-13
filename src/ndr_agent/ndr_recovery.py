@@ -27,7 +27,12 @@ from config.config import (  # noqa: E402
     FEATURED_SHIPMENTS_PATH,
     HIGH_RISK_NDR_REASONS,
     MAX_ATTEMPTS_BEFORE_RTO_RISK,
+    NDR_EMAIL_REASONS,
+    NDR_MANUAL_CALL_AGE_HOURS,
+    NDR_MANUAL_CALL_HIGH_VALUE_INR,
+    NDR_MANUAL_CALL_MIN_ATTEMPT,
     NDR_QUEUE_PATH,
+    NDR_WHATSAPP_ACTION_REASONS,
     OUTPUTS_DIR,
     SNAPSHOT_DATE,
 )
@@ -43,6 +48,72 @@ ACTION_MAP = {
     "Customer cancelled order": "Initiate RTO — no further reattempt",
     "COD payment declined": "Offer prepaid/UPI alternative; escalate if repeated",
 }
+
+
+def assign_ndr_channel(r: pd.Series, snapshot: pd.Timestamp) -> dict:
+    """NDR outreach channel routing — priority-ordered rule cascade.
+
+    Business logic (see config.config for the full rationale + thresholds):
+      1. MANUAL AGENT CALL (₹15-25/call, deliberately the expensive channel)
+         — gated by severity, not blanket-applied: 2nd/3rd+ attempt, a
+         high-value COD-dispute order, or a case aged past 24-48h.
+      2. EMAIL — backup/documentation channel, used specifically when the
+         phone itself is unreachable (paper trail for later disputes).
+      3. IVR (automated call) — the default first-touch channel: near-zero
+         cost, used for the bulk of Day-1 volume on simple reasons.
+    WhatsApp runs IN PARALLEL with IVR (also_whatsapp=True, never a
+    replacement) whenever the customer needs to actively DO something —
+    confirm a slot, share a location pin, verify an address, confirm COD
+    readiness — regardless of which channel is primary, since a written,
+    actionable trail helps even alongside a call.
+
+    Each shipment gets exactly ONE primary channel — this is what prevents
+    bombarding the same customer with a call AND an SMS AND an email for the
+    same unresolved case; WhatsApp is the only sanctioned parallel add-on.
+    """
+    reason = r["ndr_reason"]
+    attempt = int(r["attempt_number"])
+    is_cod = bool(r.get("is_cod", False))
+    amount = float(r.get("package_amount", 0) or 0)
+    fad = r.get("first_attempt_date")
+    age_hours = None
+    if pd.notna(fad):
+        age_hours = (snapshot - pd.Timestamp(fad)).total_seconds() / 3600.0
+
+    is_cod_dispute = is_cod and reason == "COD payment declined" and amount >= NDR_MANUAL_CALL_HIGH_VALUE_INR
+    is_aged = age_hours is not None and age_hours >= NDR_MANUAL_CALL_AGE_HOURS
+    is_repeat_failure = attempt >= NDR_MANUAL_CALL_MIN_ATTEMPT
+    is_high_risk_reason = reason in HIGH_RISK_NDR_REASONS
+
+    also_whatsapp = reason in NDR_WHATSAPP_ACTION_REASONS
+
+    if is_repeat_failure or is_cod_dispute or is_aged or is_high_risk_reason:
+        channel = "Manual Agent Call"
+        bits = []
+        if is_repeat_failure:
+            bits.append(f"attempt #{attempt} (repeat failure)")
+        if is_cod_dispute:
+            bits.append(f"COD amount dispute >= INR {NDR_MANUAL_CALL_HIGH_VALUE_INR}")
+        if is_aged:
+            bits.append(f"aged {age_hours:.0f}h (>= {NDR_MANUAL_CALL_AGE_HOURS}h)")
+        if is_high_risk_reason and not bits:
+            bits.append(f"high-risk reason ({reason})")
+        rationale = "Escalated to manual agent call — " + "; ".join(bits) + "."
+    elif reason in NDR_EMAIL_REASONS:
+        channel = "Email"
+        rationale = f"Phone unreachable ({reason}) — email is the documentation/backup channel."
+    else:
+        channel = "IVR"
+        rationale = "First-touch, low-complexity reason — routed to automated IVR (near-zero cost)."
+
+    if also_whatsapp and channel != "Manual Agent Call":
+        rationale += " Parallel WhatsApp sent — customer action required (confirm slot/address/location/COD readiness)."
+
+    return {
+        "recommended_channel": channel,
+        "also_whatsapp": also_whatsapp,
+        "channel_rationale": rationale,
+    }
 
 
 def _empirical_reattempt_success(df: pd.DataFrame) -> pd.DataFrame:
@@ -106,6 +177,7 @@ def build_ndr_queue(df: pd.DataFrame) -> pd.DataFrame:
             action = ACTION_MAP.get(r["ndr_reason"], "Customer contact required")
 
         deadline = snapshot + pd.Timedelta(hours=deadline_hours)
+        channel_info = assign_ndr_channel(r, snapshot)
 
         rows.append({
             "shipment_id": r["shipment_uid"],
@@ -123,12 +195,16 @@ def build_ndr_queue(df: pd.DataFrame) -> pd.DataFrame:
             "deadline": deadline.strftime("%Y-%m-%d %H:%M"),
             "ai_confidence": confidence,
             "status": "Open",
+            "recommended_channel": channel_info["recommended_channel"],
+            "also_whatsapp": channel_info["also_whatsapp"],
+            "channel_rationale": channel_info["channel_rationale"],
         })
 
     columns = [
         "shipment_id", "awb", "order_id", "carrier", "lane_class", "ndr_reason", "ndr_category",
         "attempt_number", "customer_action_required", "recommended_action",
         "reattempt_success_probability", "priority", "deadline", "ai_confidence", "status",
+        "recommended_channel", "also_whatsapp", "channel_rationale",
     ]
     if not rows:
         return pd.DataFrame(columns=columns)
